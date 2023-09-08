@@ -88,7 +88,7 @@ target_pose.orientation.w = 1.0
 move_group.set_pose_target(target_pose)
 plan = move_group.plan()
 
-move_group.set_max_velocity_scaling_factor(0.03)
+move_group.set_max_velocity_scaling_factor(0.1)
 
 # Turn check to True
 checkBoundary = True
@@ -97,7 +97,7 @@ checkFinished = False
 plan = move_group.go(wait=False)
 while(checkBoundary is True and checkFinished is False):
     # Check position
-    checkBoundary = WithinBoundary()
+    #checkBoundary = WithinBoundary()
     checkFinished = WithinTarget()
     current_pose_x = move_group.get_current_pose().pose.position.x
     current_pose_y = move_group.get_current_pose().pose.position.y
@@ -109,7 +109,7 @@ move_group.stop()
 move_group.clear_pose_targets()
 
 # After your loop, save the position data to a CSV file
-with open('position_test.csv', 'a', newline='') as csvfile:
+with open('position_simulated.csv', 'a', newline='') as csvfile:
     csv_writer = csv.writer(csvfile)
     
     # Write a header row with column names
