@@ -30,5 +30,12 @@ while(1):
     current_pose_x = move_group.get_current_pose().pose.position.x
     current_pose_y = move_group.get_current_pose().pose.position.y
     current_pose_z = move_group.get_current_pose().pose.position.z
-    rospy.loginfo("X:{} Y:{} Z:{}".format(current_pose_x, current_pose_y,current_pose_z))
+
+    current_pose_x_o = move_group.get_current_pose().pose.orientation.x
+    current_pose_y_o = move_group.get_current_pose().pose.orientation.y
+    current_pose_z_o = move_group.get_current_pose().pose.orientation.z
+    current_pose_w_o = move_group.get_current_pose().pose.orientation.w
+
+    #rospy.loginfo("X:{} Y:{} Z:{}".format(current_pose_x, current_pose_y,current_pose_z))
+    rospy.loginfo("X:{} Y:{} Z:{} XO:{} YO:{} ZO:{} WO:{}".format(current_pose_x, current_pose_y,current_pose_z,current_pose_x_o, current_pose_y_o,current_pose_z_o,current_pose_w_o))
     rospy.sleep(3)

@@ -24,6 +24,7 @@ scene = moveit_commander.PlanningSceneInterface()
 group_name = "manipulator"
 move_group = moveit_commander.MoveGroupCommander(group_name)
 
+
 rospy.loginfo("STARTING")
 
 ############################################FUNCTIONS###############################################################
@@ -31,12 +32,12 @@ rospy.loginfo("STARTING")
 #Checks to see if the robot is moving within the required boundary zones
 def WithinBoundary():
     #Manually set boundary constraints
-    minimum_x_boundary = 0
-    maximum_x_boundary = 0.825
-    minimum_y_boundary = -0.550
-    maximum_y_boundary = 0.5
-    minimum_z_boundary = -0.435
-    maximum_z_boundary = 0.370
+    minimum_x_boundary = -0.7
+    maximum_x_boundary = -0.11
+    minimum_y_boundary = -0.5
+    maximum_y_boundary = 0.490
+    minimum_z_boundary = 0.18
+    maximum_z_boundary = 0.7
 
     current_pose_x = move_group.get_current_pose().pose.position.x
     current_pose_y = move_group.get_current_pose().pose.position.y
@@ -74,15 +75,20 @@ def WithinTarget():
 #For data saving
 position_data = []
 
+current_pose_x_o = move_group.get_current_pose().pose.orientation.x
+current_pose_y_o = move_group.get_current_pose().pose.orientation.y
+current_pose_z_o = move_group.get_current_pose().pose.orientation.z
+current_pose_w_o = move_group.get_current_pose().pose.orientation.w
+
 # Define first target pose
 target_pose = geometry_msgs.msg.Pose()
-target_pose.position.x = 0.5
-target_pose.position.y = -0.5
-target_pose.position.z = 0.5
-target_pose.orientation.x = 0.0
-target_pose.orientation.y = 0.0
-target_pose.orientation.z = 0.0
-target_pose.orientation.w = 1.0
+target_pose.position.x = -0.56
+target_pose.position.y = 0.4
+target_pose.position.z = 0.21
+target_pose.orientation.x = current_pose_x_o
+target_pose.orientation.y = current_pose_y_o
+target_pose.orientation.z = current_pose_z_o
+target_pose.orientation.w = current_pose_w_o
 
 # Set first target pose
 move_group.set_pose_target(target_pose)
@@ -94,7 +100,10 @@ move_group.set_max_velocity_scaling_factor(0.03)
 checkBoundary = True
 checkFinished = False
 # While the robot is within the boundary zones move
+plan_test = move_group.plan()
+path = plan_test[1].joint_trajectory.points
 plan = move_group.go(wait=False)
+
 while(checkBoundary is True and checkFinished is False):
     # Check position
     checkBoundary = WithinBoundary()
@@ -102,6 +111,18 @@ while(checkBoundary is True and checkFinished is False):
     current_pose_x = move_group.get_current_pose().pose.position.x
     current_pose_y = move_group.get_current_pose().pose.position.y
     current_pose_z = move_group.get_current_pose().pose.position.z
+
+    current_pose_x = move_group.get_current_pose().pose.position.x
+    current_pose_y = move_group.get_current_pose().pose.position.y
+    current_pose_z = move_group.get_current_pose().pose.position.z
+
+    current_pose_x_o = move_group.get_current_pose().pose.orientation.x
+    current_pose_y_o = move_group.get_current_pose().pose.orientation.y
+    current_pose_z_o = move_group.get_current_pose().pose.orientation.z
+    current_pose_w_o = move_group.get_current_pose().pose.orientation.w
+
+    rospy.loginfo("X:{} Y:{} Z:{} XO:{} YO:{} ZO:{} WO:{}".format(current_pose_x, current_pose_y,current_pose_z,current_pose_x_o, current_pose_y_o,current_pose_z_o,current_pose_w_o))
+
     position_data.append([current_pose_x, current_pose_y, current_pose_z])
     rospy.sleep(0.25)
 # Stop the robot and clear pose targets
@@ -123,21 +144,39 @@ rospy.loginfo("First pose completed. Moving to the next pose.")
 
 
 ########################################Reset Position######################################################
+current_pose_x_o = move_group.get_current_pose().pose.orientation.x
+current_pose_y_o = move_group.get_current_pose().pose.orientation.y
+current_pose_z_o = move_group.get_current_pose().pose.orientation.z
+current_pose_w_o = move_group.get_current_pose().pose.orientation.w
+
 # Define Second target pose
 target_pose = geometry_msgs.msg.Pose()
-target_pose.position.x = 0.5
-target_pose.position.y = 0.5
-target_pose.position.z = 0.5
-target_pose.orientation.x = 0.0
-target_pose.orientation.y = 0.0
-target_pose.orientation.z = 0.0
-target_pose.orientation.w = 1.0
+target_pose.position.x = -0.56
+target_pose.position.y = -0.4
+target_pose.position.z = 0.21
+target_pose.orientation.x = current_pose_x_o
+target_pose.orientation.y = current_pose_y_o
+target_pose.orientation.z = current_pose_z_o
+target_pose.orientation.w = current_pose_w_o
 
-# Set first target pose
+# Set second target pose
 move_group.set_pose_target(target_pose)
 plan = move_group.plan()
 
-plan = move_group.go(wait=True)
+move_group.set_max_velocity_scaling_factor(0.03)
+
+# Turn check to True
+checkBoundary = True
+checkFinished = False
+
+# While the robot is within the boundary zones move
+plan = move_group.go(wait=False)
+while(checkBoundary is True and checkFinished is False):
+    # Check position
+    checkBoundary = WithinBoundary()
+    checkFinished = WithinTarget()
+    rospy.sleep(0.25)
+# Stop the robot and clear pose targets
 move_group.stop()
 move_group.clear_pose_targets()
 

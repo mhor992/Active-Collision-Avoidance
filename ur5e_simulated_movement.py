@@ -90,6 +90,9 @@ plan = move_group.plan()
 
 move_group.set_max_velocity_scaling_factor(0.1)
 
+plan_test = move_group.plan()
+path = plan_test[1].joint_trajectory.points
+
 # Turn check to True
 checkBoundary = True
 checkFinished = False
