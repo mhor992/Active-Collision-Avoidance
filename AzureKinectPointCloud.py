@@ -114,8 +114,8 @@ def update_image_and_cloud():
         point_cloud_msg = create_point_cloud2_message(points)
         
         #clear octomap
-        if iterations % 100 == 0:
-            clear_octomap()
+        #if iterations % 100 == 0:
+            #clear_octomap()
         
         # Publish the PointCloud2 message
         pub.publish(point_cloud_msg)
