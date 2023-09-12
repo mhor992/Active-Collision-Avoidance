@@ -16,6 +16,8 @@ scene = moveit_commander.PlanningSceneInterface()
 group_name = "manipulator"
 move_group = moveit_commander.MoveGroupCommander(group_name)
 
+print("Start")
+
 #Refresh the planning scene
 scene.remove_world_object("back_wall")
 scene.remove_world_object("left_wall")
@@ -56,7 +58,7 @@ scene.add_box("bottom_wall", bottom_wall, (2, 2, 0.1))
 
 rospy.sleep(1)
 
-############################################FUNCTIONS###############################################################
+####################################SAFETY FUNCTIONS###############################################################
 
 #Checks to see if the robot is moving within the required boundary zones
 def WithinBoundary():
@@ -85,7 +87,7 @@ def WithinBoundary():
         return True
 
 #Checks to see if the robot has reached the goal position
-def WithinTarget():
+def WithinTarget(target_pose):
     threshold = 0.1
 
     current_pose_x = move_group.get_current_pose().pose.position.x
@@ -98,81 +100,61 @@ def WithinTarget():
         return True
     else:
         return False
+############################################### DATA STORAGE FUNCTIONS ######################################################
+def AppendData():
+    current_pose_x = move_group.get_current_pose().pose.position.x
+    current_pose_y = move_group.get_current_pose().pose.position.y
+    current_pose_z = move_group.get_current_pose().pose.position.z
+    position_data.append([current_pose_x, current_pose_y, current_pose_z])
+############################################### MOVEMENT FUNCTIONS ######################################################
+def MoveToPosition(target_pose):
 
-############################################################################################################################
+    move_group.set_pose_target(target_pose)
+    plan = move_group.plan()
+
+    # Turn check to True
+    checkBoundary = True
+    checkFinished = False
+
+    plan = move_group.go(wait=False)
+    while(checkBoundary is True and checkFinished is False):
+        # Check position
+        # checkBoundary = WithinBoundary()
+        checkFinished = WithinTarget(target_pose)
+        AppendData()
+        rospy.sleep(0.25)
+    # Stop the robot and clear pose targets
+    move_group.stop()
+    move_group.clear_pose_targets()
+#########################################################################################################################
 
 #For data saving
 position_data = []
 
 # Define the first target pose
-target_pose = geometry_msgs.msg.Pose()
-target_pose.position.x = -0.5
-target_pose.position.y = -0.5
-target_pose.position.z = 0.5
-target_pose.orientation.x = 0.0
-target_pose.orientation.y = 0.0
-target_pose.orientation.z = 0.0
-target_pose.orientation.w = 1.0
-
-# Set first target pose
-move_group.set_pose_target(target_pose)
-plan = move_group.plan()
-
-# Turn check to True
-checkBoundary = True
-checkFinished = False
-
-plan = move_group.go(wait=False)
-while(checkBoundary is True and checkFinished is False):
-    # Check position
-    #checkBoundary = WithinBoundary()
-    checkFinished = WithinTarget()
-    current_pose_x = move_group.get_current_pose().pose.position.x
-    current_pose_y = move_group.get_current_pose().pose.position.y
-    current_pose_z = move_group.get_current_pose().pose.position.z
-    position_data.append([current_pose_x, current_pose_y, current_pose_z])
-    rospy.sleep(0.25)
-# Stop the robot and clear pose targets
-move_group.stop()
-move_group.clear_pose_targets()
-
-print("Finished moving to the first pose")
+pose_1 = geometry_msgs.msg.Pose()
+pose_1.position.x = -0.5
+pose_1.position.y = -0.5
+pose_1.position.z = 0.5
+pose_1.orientation.x = 0.0
+pose_1.orientation.y = 0.0
+pose_1.orientation.z = 0.0
+pose_1.orientation.w = 1.0
 
 # Define the second target pose
-target_pose = geometry_msgs.msg.Pose()
-target_pose.position.x = -0.5
-target_pose.position.y = 0.5
-target_pose.position.z = 0.5
-target_pose.orientation.x = 0.0
-target_pose.orientation.y = 0.0
-target_pose.orientation.z = 0.0
-target_pose.orientation.w = 1.0
+pose_2 = geometry_msgs.msg.Pose()
+pose_2.position.x = -0.5
+pose_2.position.y = 0.5
+pose_2.position.z = 0.5
+pose_2.orientation.x = 0.0
+pose_2.orientation.y = 0.0
+pose_2.orientation.z = 0.0
+pose_2.orientation.w = 1.0
 
-# Set first target pose
-move_group.set_pose_target(target_pose)
-plan = move_group.plan()
+MoveToPosition(pose_1)
+print("Finished moving to the first pose")
 
-# Turn check to True
-checkBoundary = True
-checkFinished = False
-
-plan = move_group.go(wait=False)
-
-
-while(checkBoundary is True and checkFinished is False):
-    # Check position
-    #checkBoundary = WithinBoundary()
-    checkFinished = WithinTarget()
-    current_pose_x = move_group.get_current_pose().pose.position.x
-    current_pose_y = move_group.get_current_pose().pose.position.y
-    current_pose_z = move_group.get_current_pose().pose.position.z
-    position_data.append([current_pose_x, current_pose_y, current_pose_z])
-    rospy.sleep(0.25)
-
-# Stop the robot and clear pose targets
-move_group.stop()
-move_group.clear_pose_targets()
-
+MoveToPosition(pose_2)
 print("Finished moving to the second pose")
 
 # After your loop, save the position data to a CSV file
