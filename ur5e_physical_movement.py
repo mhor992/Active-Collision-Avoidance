@@ -64,6 +64,13 @@ bottom_wall.pose.position.y = 0
 bottom_wall.pose.position.z = -0.3
 scene.add_box("bottom_wall", bottom_wall, (2, 2, 0.1))
 
+top_wall = geometry_msgs.msg.PoseStamped()
+top_wall.header.frame_id = robot.get_planning_frame()
+top_wall.pose.position.x = 0
+top_wall.pose.position.y = 0
+top_wall.pose.position.z = 0.8
+scene.add_box("top_wall", top_wall, (2, 2, 0.1))
+
 rospy.sleep(1)
 
 ####################################SAFETY FUNCTIONS###############################################################
@@ -119,7 +126,7 @@ def MoveToPosition(target_pose):
 
     move_group.set_pose_target(target_pose)
     plan = move_group.plan()
-
+    move_group.set_max_velocity_scaling_factor(0.03)
     # Turn check to True
     checkBoundary = True
     checkFinished = False
@@ -127,7 +134,7 @@ def MoveToPosition(target_pose):
     plan = move_group.go(wait=False)
     while(checkBoundary is True and checkFinished is False):
         # Check position
-        # checkBoundary = WithinBoundary()
+        checkBoundary = WithinBoundary()
         checkFinished = WithinTarget(target_pose)
         AppendData()
         rospy.sleep(0.25)
@@ -142,7 +149,7 @@ position_data = []
 # Define the first target pose
 pose_1 = geometry_msgs.msg.Pose()
 pose_1.position.x = -0.56
-pose_1.position.y = 0.4
+pose_1.position.y = 0.1
 pose_1.position.z = 0.21
 pose_1.orientation.x = move_group.get_current_pose().pose.orientation.x
 pose_1.orientation.y = move_group.get_current_pose().pose.orientation.y
@@ -152,7 +159,7 @@ pose_1.orientation.w = move_group.get_current_pose().pose.orientation.w
 # Define the second target pose
 pose_2 = geometry_msgs.msg.Pose()
 pose_2.position.x = -0.56
-pose_2.position.y = -0.4
+pose_2.position.y = -0.1
 pose_2.position.z = 0.21
 pose_2.orientation.x = move_group.get_current_pose().pose.orientation.x
 pose_2.orientation.y = move_group.get_current_pose().pose.orientation.y
@@ -166,7 +173,7 @@ MoveToPosition(pose_2)
 print("Finished moving to the second pose")
 
 # After your loop, save the position data to a CSV file
-with open('position_simulated.csv', 'a', newline='') as csvfile:
+with open('position_physical.csv', 'a', newline='') as csvfile:
     csv_writer = csv.writer(csvfile)
     
     # Write a header row with column names
