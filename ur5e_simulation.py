@@ -8,6 +8,7 @@ import sys
 import math
 import csv
 from moveit_commander import conversions
+from math import pi
 
 rospy.init_node('ur5e_simulation', anonymous=True)
 moveit_commander.roscpp_initialize(sys.argv)
@@ -108,6 +109,16 @@ def AppendData():
     position_data.append([current_pose_x, current_pose_y, current_pose_z])
 ############################################### MOVEMENT FUNCTIONS ######################################################
 def MoveToPosition(target_pose):
+
+    joint_constraint = robot.JointConstraint()
+    joint_constraint.joint_name = "joint_6"
+    joint_constraint.position = 0
+    joint_constraint.tolerance_above = pi/2
+    joint_constraint.tolerance_below = pi/2
+
+    joint_constraint.weight = 1.0
+    moveit_msgs.constraints.join_constraints.append(joint_constraint)
+    moveit_msgs.arm.set_path_constraints(moveit_msgs.constraints)
 
     move_group.set_pose_target(target_pose)
     plan = move_group.plan()
