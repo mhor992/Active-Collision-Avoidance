@@ -34,7 +34,7 @@ back_wall.header.frame_id = robot.get_planning_frame()
 back_wall.pose.position.x = 0.4
 back_wall.pose.position.y = 0
 back_wall.pose.position.z = 0.5
-scene.add_box("back_wall", back_wall, (0.1, 2, 1))
+scene.add_box("back_wall", back_wall, (0.3, 2, 1))
 
 left_wall = geometry_msgs.msg.PoseStamped()
 left_wall.header.frame_id = robot.get_planning_frame()
@@ -109,16 +109,6 @@ def AppendData():
     position_data.append([current_pose_x, current_pose_y, current_pose_z])
 ############################################### MOVEMENT FUNCTIONS ######################################################
 def MoveToPosition(target_pose):
-
-    joint_constraint = robot.JointConstraint()
-    joint_constraint.joint_name = "joint_6"
-    joint_constraint.position = 0
-    joint_constraint.tolerance_above = pi/2
-    joint_constraint.tolerance_below = pi/2
-
-    joint_constraint.weight = 1.0
-    moveit_msgs.constraints.join_constraints.append(joint_constraint)
-    moveit_msgs.arm.set_path_constraints(moveit_msgs.constraints)
 
     move_group.set_pose_target(target_pose)
     plan = move_group.plan()
