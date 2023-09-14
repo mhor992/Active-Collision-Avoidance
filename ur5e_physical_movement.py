@@ -38,7 +38,7 @@ rospy.sleep(1)
 #Add the collision zones
 back_wall = geometry_msgs.msg.PoseStamped()
 back_wall.header.frame_id = robot.get_planning_frame()
-back_wall.pose.position.x = 0.3
+back_wall.pose.position.x = 0.5
 back_wall.pose.position.y = 0.1
 back_wall.pose.position.z = 0.5
 scene.add_box("back_wall", back_wall, (0.3, 2, 1))
@@ -68,7 +68,7 @@ top_wall = geometry_msgs.msg.PoseStamped()
 top_wall.header.frame_id = robot.get_planning_frame()
 top_wall.pose.position.x = 0
 top_wall.pose.position.y = 0
-top_wall.pose.position.z = 0.9
+top_wall.pose.position.z = 1.1
 scene.add_box("top_wall", top_wall, (2, 2, 0.1))
 
 rospy.sleep(1)
@@ -141,6 +141,18 @@ def MoveToPosition(target_pose):
     # Stop the robot and clear pose targets
     move_group.stop()
     move_group.clear_pose_targets()
+
+def StartToGoal(target_pose):
+
+    current_pose_x = move_group.get_current_pose().pose.position.x
+    current_pose_y = move_group.get_current_pose().pose.position.y
+    current_pose_z = move_group.get_current_pose().pose.position.z
+
+    travel_x = goal.position.x - current_pose_x
+    travel_y = goal.position.y - current_pose_y
+    travel_z = goal.position.z - current_pose_z
+
+    distance = math.sqrt(travel_x**2 + travel_y**2 + travel_z**2)
 #########################################################################################################################
 
 #For data saving
@@ -148,6 +160,16 @@ position_data = []
 
 #Notes
 #z 0.45 limit
+
+
+goal = geometry_msgs.msg.Pose()
+goal.position.x = -0.56
+goal.position.y = 0.2
+goal.position.z = 0.21
+goal.orientation.x = move_group.get_current_pose().pose.orientation.x
+goal.orientation.y = move_group.get_current_pose().pose.orientation.y
+goal.orientation.z = move_group.get_current_pose().pose.orientation.z
+goal.orientation.w = move_group.get_current_pose().pose.orientation.w
 
 # Define the first target pose
 pose_1 = geometry_msgs.msg.Pose()
@@ -182,8 +204,8 @@ pose_3.orientation.w = move_group.get_current_pose().pose.orientation.w
 # Define the fourth target pose
 pose_4 = geometry_msgs.msg.Pose()
 pose_4.position.x = -0.56
-pose_4.position.y = 0.2
-pose_4.position.z = 0.45
+pose_4.position.y = -0.4
+pose_4.position.z = 0.4
 pose_4.orientation.x = move_group.get_current_pose().pose.orientation.x
 pose_4.orientation.y = move_group.get_current_pose().pose.orientation.y
 pose_4.orientation.z = move_group.get_current_pose().pose.orientation.z
@@ -201,8 +223,8 @@ MoveToPosition(pose_3)
 print("Finished moving to the third pose")
 rospy.sleep(0.5)
 
-# MoveToPosition(pose_4)
-# print("Finished moving to the fourth pose")
+MoveToPosition(pose_4)
+print("Finished moving to the fourth pose")
 
 # After your loop, save the position data to a CSV file
 with open('position_physical.csv', 'a', newline='') as csvfile:
