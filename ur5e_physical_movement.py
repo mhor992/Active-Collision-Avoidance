@@ -174,8 +174,8 @@ goal.orientation.w = move_group.get_current_pose().pose.orientation.w
 # Define the first target pose
 pose_1 = geometry_msgs.msg.Pose()
 pose_1.position.x = -0.56
-pose_1.position.y = 0.2
-pose_1.position.z = 0.21
+pose_1.position.y = -0.2
+pose_1.position.z = 0.3
 pose_1.orientation.x = move_group.get_current_pose().pose.orientation.x
 pose_1.orientation.y = move_group.get_current_pose().pose.orientation.y
 pose_1.orientation.z = move_group.get_current_pose().pose.orientation.z
@@ -193,8 +193,8 @@ pose_2.orientation.w = move_group.get_current_pose().pose.orientation.w
 
 # Define the third target pose
 pose_3 = geometry_msgs.msg.Pose()
-pose_3.position.x = -0.56
-pose_3.position.y = -0.4
+pose_3.position.x = -0.4
+pose_3.position.y = 0
 pose_3.position.z = 0.21
 pose_3.orientation.x = move_group.get_current_pose().pose.orientation.x
 pose_3.orientation.y = move_group.get_current_pose().pose.orientation.y
@@ -215,15 +215,15 @@ MoveToPosition(pose_1)
 print("Finished moving to the first pose")
 rospy.sleep(0.5)
 
-MoveToPosition(pose_2)
+#MoveToPosition(pose_2)
 print("Finished moving to the second pose")
 rospy.sleep(0.5)
 
-MoveToPosition(pose_3)
+#MoveToPosition(pose_3)
 print("Finished moving to the third pose")
 rospy.sleep(0.5)
 
-MoveToPosition(pose_4)
+#MoveToPosition(pose_4)
 print("Finished moving to the fourth pose")
 
 # After your loop, save the position data to a CSV file

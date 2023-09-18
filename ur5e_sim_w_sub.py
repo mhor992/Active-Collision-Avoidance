@@ -135,6 +135,7 @@ def MoveToPosition(target_pose):
     # Stop the robot and clear pose targets
     move_group.stop()
     move_group.clear_pose_targets()
+
 ############################################### JOINT POSITION FUNCTIONS ######################################################
 def joint_coordinates_callback(data):
     # This function will be called whenever a message is received on the /joint_coordinates topic

@@ -158,10 +158,15 @@ def StartToGoal(target_pose):
 def joint_coordinates_callback(data):
     # This function will be called whenever a message is received on the /joint_coordinates topic
     # The received joint coordinates are stored in 'data'
+    # joint coord global
+    global joint_coords
 
     # Extract and print the joint coordinates
     joint_coords = data.data
-    print("Received joint coordinates:", joint_coords)
+    #print("Received joint coordinates:", joint_coords)
+
+    # doing some global stuff
+
 #########################################################################################################################
 
 
@@ -169,11 +174,37 @@ def joint_coordinates_callback(data):
 # Create a subscriber for the /joint_coordinates topic
 rospy.Subscriber('/joint_coordinates', Float64MultiArray, joint_coordinates_callback)
 
-# Start the ROS event loop
-rospy.spin()
-
 #For data saving
 position_data = []
+
+minimum_x_boundary = -0.7
+maximum_x_boundary = -0.11
+minimum_y_boundary = -0.5
+maximum_y_boundary = 0.490
+minimum_z_boundary = 0.18
+maximum_z_boundary = 0.7
+
+
+goal = geometry_msgs.msg.Pose()
+
+
+while 1:
+    try:
+        lhx = joint_coords[21]
+        lhy = joint_coords[22]
+        lhz = joint_coords[23]
+        print("left hand is at: ", lhx,lhy,lhz)
+        goal.position.x = min(maximum_x_boundary, max(minimum_x_boundary, lhx+0.3))
+        goal.position.y = min(maximum_y_boundary, max(minimum_y_boundary, lhy))
+        goal.position.z = min(maximum_z_boundary, max(minimum_z_boundary, lhz))
+        goal.orientation.x = move_group.get_current_pose().pose.orientation.x
+        goal.orientation.y = move_group.get_current_pose().pose.orientation.y
+        goal.orientation.z = move_group.get_current_pose().pose.orientation.z
+        goal.orientation.w = move_group.get_current_pose().pose.orientation.w
+        MoveToPosition(goal)
+        rospy.sleep(0.5)
+    except:
+        pass
 
 #Notes
 #z 0.45 limit
