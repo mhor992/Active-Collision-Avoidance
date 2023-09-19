@@ -131,29 +131,85 @@ def MoveToPosition(target_pose):
     # Turn check to True
     checkBoundary = True
     checkFinished = False
+    checkEmergencyStop = False
 
-    plan = move_group.go(wait=False)
-    while(checkBoundary is True and checkFinished is False):
-        # Check position
-        checkBoundary = WithinBoundary()
-        checkFinished = WithinTarget(target_pose)
-        AppendData()
-        rospy.sleep(0.25)
-    # Stop the robot and clear pose targets
-    move_group.stop()
-    move_group.clear_pose_targets()
+    tester = move_group.get_current_joint_values()
 
-def StartToGoal(target_pose):
+    if (plan):
+        plan = move_group.go(wait=False)
+        while(checkBoundary is True and checkFinished is False and checkEmergencyStop is False):
+            # Check position
+            checkBoundary = WithinBoundary()
+            checkFinished = WithinTarget(target_pose)
+            checkEmergencyStop = CheckEmergencyStop()
+            AppendData()
+            rospy.sleep(0.25)
+        # Stop the robot and clear pose targets
+        move_group.stop()
+        move_group.clear_pose_targets()
 
+def PoseMaker(x, y, z):
+    #Generates and returns a target pose with x y z cartesian coordinates as an input
+    target_pose = geometry_msgs.msg.Pose()
+    target_pose.position.x = x
+    target_pose.position.y = y
+    target_pose.position.z = z
+    target_pose.orientation.x = move_group.get_current_pose().pose.orientation.x
+    target_pose.orientation.y = move_group.get_current_pose().pose.orientation.y
+    target_pose.orientation.z = move_group.get_current_pose().pose.orientation.z
+    target_pose.orientation.w = move_group.get_current_pose().pose.orientation.w
+
+    return target_pose
+
+def MoveToCartesian(x, y ,z):
+    #Moves to a target position using x y z cartesian coordinates as an input.
+    target_pose = PoseMaker(x, y, z)
+    MoveToPosition(target_pose)
+
+def CheckEmergencyStop():
+    threshold = 0
+    #Checks to see if any robot joints are close to collision with human joints
+    #Currently only for robot end effector - Ideas => Manual calculation of inverse kinematics for calculating other joint positions
     current_pose_x = move_group.get_current_pose().pose.position.x
     current_pose_y = move_group.get_current_pose().pose.position.y
     current_pose_z = move_group.get_current_pose().pose.position.z
 
-    travel_x = goal.position.x - current_pose_x
-    travel_y = goal.position.y - current_pose_y
-    travel_z = goal.position.z - current_pose_z
+    joint_pos = GetJointPositions()
+    for joints in joint_pos:
+        distance = math.sqrt(((current_pose_x - joints[0])**2) + ((current_pose_y - joints[1])**2) + ((current_pose_z - joints[2])**2))
+        if distance < threshold:
+            rospy.loginfo("Current Position X:{} Y:{} Z:{}".format(current_pose_x, current_pose_y,current_pose_z))
+            rospy.loginfo("EMERGENCY STOP")
+            return True
+        
+    return False
 
-    distance = math.sqrt(travel_x**2 + travel_y**2 + travel_z**2)
+def HandFollowing():
+
+    minimum_x_boundary = -0.7
+    maximum_x_boundary = -0.11
+    minimum_y_boundary = -0.5
+    maximum_y_boundary = 0.490
+    minimum_z_boundary = 0.18
+    maximum_z_boundary = 0.7
+    while 1:
+        try:
+            lhx = joint_coords[21]
+            lhy = joint_coords[22]
+            lhz = joint_coords[23]
+            print("left hand is at: ", lhx,lhy,lhz)
+            goal.position.x = min(maximum_x_boundary, max(minimum_x_boundary, lhx+0.3))
+            goal.position.y = min(maximum_y_boundary, max(minimum_y_boundary, lhy))
+            goal.position.z = min(maximum_z_boundary, max(minimum_z_boundary, lhz))
+            goal.orientation.x = move_group.get_current_pose().pose.orientation.x
+            goal.orientation.y = move_group.get_current_pose().pose.orientation.y
+            goal.orientation.z = move_group.get_current_pose().pose.orientation.z
+            goal.orientation.w = move_group.get_current_pose().pose.orientation.w
+            MoveToPosition(goal)
+            rospy.sleep(0.5)
+        except:
+            pass
+
 ############################################### CALLBACK FUNCTIONS (FOR SUBCRIBER) ######################################################
 def joint_coordinates_callback(data):
     # This function will be called whenever a message is received on the /joint_coordinates topic
@@ -167,48 +223,37 @@ def joint_coordinates_callback(data):
 
     # doing some global stuff
 
-#########################################################################################################################
+################################################ SENSOR PROCESSING#########################################################################
+def GetJointPositions():
 
+    try:
+        joint_pos = [None] * 32
 
+        for joint in range(0, 32):
+            index_length = 3 * joint
+            joint_pos[joint] = [1, 2, 3]
+            joint_pos[joint] = [joint_coords[0 + index_length], joint_coords[1 + index_length], joint_coords[2 + index_length]]
+
+        return joint_pos    
+    except:
+        joint_pos = [[999, 999, 999]]
+        return joint_pos
+
+###########################################################################################################################################
 
 # Create a subscriber for the /joint_coordinates topic
 rospy.Subscriber('/joint_coordinates', Float64MultiArray, joint_coordinates_callback)
 
-#For data saving
+#Create a position saving variable
 position_data = []
 
-minimum_x_boundary = -0.7
-maximum_x_boundary = -0.11
-minimum_y_boundary = -0.5
-maximum_y_boundary = 0.490
-minimum_z_boundary = 0.18
-maximum_z_boundary = 0.7
+#Is a global until FSM is set up
+checkEmergencyStop = False
 
-
-goal = geometry_msgs.msg.Pose()
-
-
-while 1:
-    try:
-        lhx = joint_coords[21]
-        lhy = joint_coords[22]
-        lhz = joint_coords[23]
-        print("left hand is at: ", lhx,lhy,lhz)
-        goal.position.x = min(maximum_x_boundary, max(minimum_x_boundary, lhx+0.3))
-        goal.position.y = min(maximum_y_boundary, max(minimum_y_boundary, lhy))
-        goal.position.z = min(maximum_z_boundary, max(minimum_z_boundary, lhz))
-        goal.orientation.x = move_group.get_current_pose().pose.orientation.x
-        goal.orientation.y = move_group.get_current_pose().pose.orientation.y
-        goal.orientation.z = move_group.get_current_pose().pose.orientation.z
-        goal.orientation.w = move_group.get_current_pose().pose.orientation.w
-        MoveToPosition(goal)
-        rospy.sleep(0.5)
-    except:
-        pass
+#HandFollowing()
 
 #Notes
 #z 0.45 limit
-
 
 goal = geometry_msgs.msg.Pose()
 goal.position.x = -0.56
