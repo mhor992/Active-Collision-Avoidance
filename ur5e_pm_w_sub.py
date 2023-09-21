@@ -210,6 +210,17 @@ def HandFollowing():
         except:
             pass
 
+def seperation(p1,p2):
+    dX = p2[0]-p1[0]
+    dY = p2[1]-p1[1]
+    dZ = p2[2]-p1[2]
+    sep = (dX^2+dY^2+dZ^2)^0.5
+    angle = math.asin(dZ/sep)
+    return [sep, angle] #returns distance between points and angle in radians from point 1
+
+def compute_force(sep, angle):
+    force = 1
+    return force
 ############################################### CALLBACK FUNCTIONS (FOR SUBCRIBER) ######################################################
 def joint_coordinates_callback(data):
     # This function will be called whenever a message is received on the /joint_coordinates topic
