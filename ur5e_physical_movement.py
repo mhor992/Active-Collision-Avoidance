@@ -15,7 +15,9 @@ import geometry_msgs.msg
 import sys
 import math
 import csv
+import numpy
 from moveit_commander import conversions
+from std_msgs.msg import Float64MultiArray
 
 rospy.init_node('ur5e_physical_movement', anonymous=True)
 moveit_commander.roscpp_initialize(sys.argv)
@@ -153,6 +155,42 @@ def StartToGoal(target_pose):
     travel_z = goal.position.z - current_pose_z
 
     distance = math.sqrt(travel_x**2 + travel_y**2 + travel_z**2)
+
+def separation(p1,p2):
+    dX = p2[0]-p1[0]
+    dY = p2[1]-p1[1]
+    dZ = p2[2]-p1[2]
+    sep = (dX^2+dY^2+dZ^2)^0.5
+    return sep #returns distance between points and angle in radians from point 1
+
+def cost(point, joints, weight):
+    # calculates the cost associated with a point due to surrounding joints
+    cost = 0
+    for joint in joints:
+        cost = 1/separation(point, joint)^2 + cost
+    return cost
+
+def next_move(r, joints, target): #r is range for each movement, joint is array of joints [[x1, y1, z1], [x2,y2,z2]...], target is coord also
+    x = move_group.get_current_pose().pose.x
+    y = move_group.get_current_pose().pose.y
+    z = move_group.get_current_pose().pose.z
+    poses = [[x,y,z],[x+r,y,z],[x-r,y,z],[x+r,y+r,z],[x+r,y-r,z],[x-r,y+r,z],[x-r,y-r,z],[x+r,y,z+r],
+    [x+r,y,z-r],[x-r,y,z+r],[x-r,y,z-r],[x+r,y+r,z+r],[x+r,y+r,z-r],[x+r,y-r,z+r],[x+r,y-r,z-r],
+    [x-r,y+r,z+r],[x-r,y+r,z-r], [x-r,y-r,z+r],[x-r,y-r,z-r], [x,y+r,z],[x,y-r,z],[x,y+r,z+r],
+    [x,y+r,z-r],[x,y-r,z+r],[x,y-r,z-r],[x,y,z+r],[x,y,z-r]]
+
+    if separation(pose[0], target)<= r:
+        return target
+
+    min_cost = 1000000
+    target_weight = 10
+    joint_weight = 1
+    for pose in poses:
+        cost = cost(pose, joints, joint_weight) - (10/separation(pose, target)) #change value to weight target more heavily / less heavily, should this be squared?
+        if cost < min_cost:
+            min_cost = cost
+            min_pose = pose
+    return min_pose # the most cost effective pose to move to
 #########################################################################################################################
 
 #For data saving

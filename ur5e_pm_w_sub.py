@@ -194,9 +194,9 @@ def HandFollowing():
     maximum_z_boundary = 0.7
     while 1:
         try:
-            lhx = joint_coords[21]
-            lhy = joint_coords[22]
-            lhz = joint_coords[23]
+            lhx = joint_coords[24]
+            lhy = joint_coords[25]
+            lhz = joint_coords[26]
             print("left hand is at: ", lhx,lhy,lhz)
             goal.position.x = min(maximum_x_boundary, max(minimum_x_boundary, lhx+0.3))
             goal.position.y = min(maximum_y_boundary, max(minimum_y_boundary, lhy))
@@ -210,17 +210,42 @@ def HandFollowing():
         except:
             pass
 
-def seperation(p1,p2):
+def separation(p1,p2):
     dX = p2[0]-p1[0]
     dY = p2[1]-p1[1]
     dZ = p2[2]-p1[2]
-    sep = (dX^2+dY^2+dZ^2)^0.5
-    angle = math.asin(dZ/sep)
-    return [sep, angle] #returns distance between points and angle in radians from point 1
+    sep = ((dX)**2+(dY)**2+(dZ)**2)**0.5
+    return sep #returns distance between points and angle in radians from point 1
 
-def compute_force(sep, angle):
-    force = 1
-    return force
+def cost(point, joints, weight):
+    # calculates the cost associated with a point due to surrounding joints
+    cost = 0
+    for joint in joints:
+        cost = 1/separation(point, joint)^2 + cost
+    return cost
+
+def next_move(r, joints, target): #r is range for each movement, joint is array of joints [[x1, y1, z1], [x2,y2,z2]...], target is coord also
+    x = move_group.get_current_pose().pose.x
+    y = move_group.get_current_pose().pose.y
+    z = move_group.get_current_pose().pose.z
+    poses = [[x,y,z],[x+r,y,z],[x-r,y,z],[x+r,y+r,z],[x+r,y-r,z],[x-r,y+r,z],[x-r,y-r,z],[x+r,y,z+r],
+    [x+r,y,z-r],[x-r,y,z+r],[x-r,y,z-r],[x+r,y+r,z+r],[x+r,y+r,z-r],[x+r,y-r,z+r],[x+r,y-r,z-r],
+    [x-r,y+r,z+r],[x-r,y+r,z-r], [x-r,y-r,z+r],[x-r,y-r,z-r], [x,y+r,z],[x,y-r,z],[x,y+r,z+r],
+    [x,y+r,z-r],[x,y-r,z+r],[x,y-r,z-r],[x,y,z+r],[x,y,z-r]]
+
+    if separation(pose[0], target)<= r:
+        return target
+
+    min_cost = 1000000
+    target_weight = 10
+    joint_weight = 1
+    for pose in poses:
+        cost = cost(pose, joints, joint_weight) - (10/separation(pose, target)) #change value to weight target more heavily / less heavily, should this be squared?
+        if cost < min_cost:
+            min_cost = cost
+            min_pose = pose
+    return min_pose # the most cost effective pose to move to
+
 ############################################### CALLBACK FUNCTIONS (FOR SUBCRIBER) ######################################################
 def joint_coordinates_callback(data):
     # This function will be called whenever a message is received on the /joint_coordinates topic
@@ -261,13 +286,30 @@ position_data = []
 #Is a global until FSM is set up
 checkEmergencyStop = False
 
+goal = geometry_msgs.msg.Pose()
+
+
+
+
+while 1:
+    try:
+        l_hand = [joint_coords[24], joint_coords[25], joint_coords[26]]
+        sep = separation(l_hand, [-0.7,0.4,0.2])
+        print("Left hand is at:", l_hand[0], l_hand[1], l_hand[2])
+        print("Distance from target:", sep)
+        rospy.sleep(0.5)
+    except:
+        pass
+    
+
+
 #HandFollowing()
 
 #Notes
 #z 0.45 limit
 
-goal = geometry_msgs.msg.Pose()
-goal.position.x = -0.56
+
+'''goal.position.x = -0.56
 goal.position.y = 0.2
 goal.position.z = 0.21
 goal.orientation.x = move_group.get_current_pose().pose.orientation.x
@@ -338,4 +380,4 @@ with open('position_physical.csv', 'a', newline='') as csvfile:
     csv_writer.writerow(['X', 'Y', 'Z'])
     
     # Write the position data
-    csv_writer.writerows(position_data)
+    csv_writer.writerows(position_data)'''
