@@ -143,33 +143,34 @@ def separation(p1,p2):
     sep = ((dX)**2+(dY)**2+(dZ)**2)**0.5
     return sep #returns distance between points and angle in radians from point 1
 
-def cost(point, joints, weight):
+def cp_cost(point, joints, weight):
     # calculates the cost associated with a point due to surrounding joints
     cost = 0
     for joint in joints:
-        cost = weight/separation(point, joint)**2 + cost
+        cost = weight/separation(point, joint) + cost
     return cost
 
 def next_move(r, joints, target): #r is range for each movement, joint is array of joints [[x1, y1, z1], [x2,y2,z2]...], target is coord also
-    x = move_group.get_current_pose().pose.x
-    y = move_group.get_current_pose().pose.y
-    z = move_group.get_current_pose().pose.z
+    x = move_group.get_current_pose().pose.position.x
+    y = move_group.get_current_pose().pose.position.y
+    z = move_group.get_current_pose().pose.position.z
     poses = [[x,y,z],[x+r,y,z],[x-r,y,z],[x+r,y+r,z],[x+r,y-r,z],[x-r,y+r,z],[x-r,y-r,z],[x+r,y,z+r],
     [x+r,y,z-r],[x-r,y,z+r],[x-r,y,z-r],[x+r,y+r,z+r],[x+r,y+r,z-r],[x+r,y-r,z+r],[x+r,y-r,z-r],
     [x-r,y+r,z+r],[x-r,y+r,z-r], [x-r,y-r,z+r],[x-r,y-r,z-r], [x,y+r,z],[x,y-r,z],[x,y+r,z+r],
     [x,y+r,z-r],[x,y-r,z+r],[x,y-r,z-r],[x,y,z+r],[x,y,z-r]]
 
-    if separation(pose[0], target)<= r:
-        return target 
+    #if separation(poses[0], target)<= r:
+    #    return target 
 
     min_cost = 1000000
     target_weight = 1
-    joint_weight = 1
+    joint_weight = 2
     for pose in poses:
-        cost = cost(pose, joints, joint_weight) - (target_weight/separation(pose, target)) #change value to weight target more heavily / less heavily, should this be squared?
+        cost = cp_cost(pose, joints, joint_weight) - (target_weight/separation(pose, target)) #change value to weight target more heavily / less heavily, should this be squared?
         if cost < min_cost:
             min_cost = cost
             min_pose = pose
+    
     return min_pose # the most cost effective pose to move to
 
 ############################################### JOINT POSITION FUNCTIONS ######################################################
@@ -203,7 +204,8 @@ maximum_z_boundary = 0.7
 
 goal = geometry_msgs.msg.Pose()
 
-pose_1 = geometry_msgs.msg.Pose()
+#debugging
+'''pose_1 = geometry_msgs.msg.Pose()
 pose_1.position.x = -0.56
 pose_1.position.y = -0.2
 pose_1.position.z = 0.21
@@ -214,14 +216,61 @@ pose_1.orientation.w = move_group.get_current_pose().pose.orientation.w
 MoveToPosition(pose_1)
 print("Finished moving to pose")
 
+l_hand = [joint_coords[24], joint_coords[25], joint_coords[26]]
+hand_pos = geometry_msgs.msg.PoseStamped()
+hand_pos.header.frame_id = robot.get_planning_frame()
+hand_pos.pose.position.x = l_hand[0]
+hand_pos.pose.position.y = l_hand[1]
+hand_pos.pose.position.z = l_hand[2]
+scene.add_box("left hand", hand_pos, (0.1, 0.1, 0.1))
+sep = separation(l_hand, [-0.3,0.2,0.2])
+print("Left hand is at:", l_hand[0], l_hand[1], l_hand[2])
+print("Distance from target:", sep)
+rospy.sleep(0.5)'''
+
+'''while 1:  
+    l_hand = [joint_coords[24], joint_coords[25], joint_coords[26]]
+    hand_pos = geometry_msgs.msg.PoseStamped()
+    hand_pos.header.frame_id = robot.get_planning_frame()
+    hand_pos.pose.position.x = l_hand[0]
+    hand_pos.pose.position.y = l_hand[1]
+    hand_pos.pose.position.z = l_hand[2]
+    scene.add_box("left hand", hand_pos, (0.1, 0.1, 0.1))
+    sep = separation(l_hand, [-0.3,0.2,0.2])
+    print("Left hand is at:", l_hand[0], l_hand[1], l_hand[2])
+    print("Distance from target:", sep)
+    rospy.sleep(0.5)
+
+    next_pos = next_move(0.1, [l_hand], [-0.56,-0.2,0.21])
+    print("Moving to:", next_pos[0], next_pos[1], next_pos[2])
+    pose_1 = geometry_msgs.msg.Pose()
+    pose_1.position.x = next_pos[0]
+    pose_1.position.y = next_pos[1]
+    pose_1.position.z = next_pos[2]
+    pose_1.orientation.x = move_group.get_current_pose().pose.orientation.x
+    pose_1.orientation.y = move_group.get_current_pose().pose.orientation.y
+    pose_1.orientation.z = move_group.get_current_pose().pose.orientation.z
+    pose_1.orientation.w = move_group.get_current_pose().pose.orientation.w
+    MoveToPosition(pose_1)
+    print("Finished moving to pose")
+    rospy.sleep(0.5)'''
+
 while 1:
     try:
         l_hand = [joint_coords[24], joint_coords[25], joint_coords[26]]
+        hand_pos = geometry_msgs.msg.PoseStamped()
+        hand_pos.header.frame_id = robot.get_planning_frame()
+        hand_pos.pose.position.x = l_hand[0]
+        hand_pos.pose.position.y = l_hand[1]
+        hand_pos.pose.position.z = l_hand[2]
+        scene.add_box("left hand", hand_pos, (0.1, 0.1, 0.1))
         sep = separation(l_hand, [-0.3,0.2,0.2])
         print("Left hand is at:", l_hand[0], l_hand[1], l_hand[2])
         print("Distance from target:", sep)
         rospy.sleep(0.5)
-        next_pos = next_move(0.1, [l_hand], [-0.1,0.4,0.2])
+        
+        next_pos = next_move(0.1, [l_hand], [-0.56,-0.2,0.21])
+        print("Moving to:", next_pos[0], next_pos[1], next_pos[2])
         pose_1 = geometry_msgs.msg.Pose()
         pose_1.position.x = next_pos[0]
         pose_1.position.y = next_pos[1]

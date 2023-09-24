@@ -18,12 +18,18 @@ import csv
 from moveit_commander import conversions
 from std_msgs.msg import Float64MultiArray
 
+
 rospy.init_node('ur5e_physical_movement', anonymous=True)
 moveit_commander.roscpp_initialize(sys.argv)
 robot = moveit_commander.RobotCommander()
 scene = moveit_commander.PlanningSceneInterface()
 group_name = "manipulator"
 move_group = moveit_commander.MoveGroupCommander(group_name)
+move_group.set_planner_id("RRTConnectkConfigDefault")
+
+# set tolerance
+move_group.set_goal_position_tolerance(0.05)
+#move_group.set_planning_time(25.0)
 
 rospy.loginfo("Start")
 
@@ -42,35 +48,35 @@ back_wall.header.frame_id = robot.get_planning_frame()
 back_wall.pose.position.x = 0.5
 back_wall.pose.position.y = 0.1
 back_wall.pose.position.z = 0.5
-scene.add_box("back_wall", back_wall, (0.3, 2, 1))
+#scene.add_box("back_wall", back_wall, (0.3, 2, 1))
 
 left_wall = geometry_msgs.msg.PoseStamped()
 left_wall.header.frame_id = robot.get_planning_frame()
 left_wall.pose.position.x = 0
 left_wall.pose.position.y = 0.75
 left_wall.pose.position.z = 0.5
-scene.add_box("left_wall", left_wall, (1.7, 0.1, 1))
+#scene.add_box("left_wall", left_wall, (1.7, 0.1, 1))
 
 right_wall = geometry_msgs.msg.PoseStamped()
 right_wall.header.frame_id = robot.get_planning_frame()
 right_wall.pose.position.x = 0
 right_wall.pose.position.y = -0.75
 right_wall.pose.position.z = 0.5
-scene.add_box("right_wall", right_wall, (1.7, 0.1, 1))
+#scene.add_box("right_wall", right_wall, (1.7, 0.1, 1))
 
 bottom_wall = geometry_msgs.msg.PoseStamped()
 bottom_wall.header.frame_id = robot.get_planning_frame()
 bottom_wall.pose.position.x = 0
 bottom_wall.pose.position.y = 0
 bottom_wall.pose.position.z = -0.3
-scene.add_box("bottom_wall", bottom_wall, (2, 2, 0.1))
+#scene.add_box("bottom_wall", bottom_wall, (2, 2, 0.1))
 
 top_wall = geometry_msgs.msg.PoseStamped()
 top_wall.header.frame_id = robot.get_planning_frame()
 top_wall.pose.position.x = 0
 top_wall.pose.position.y = 0
 top_wall.pose.position.z = 1.1
-scene.add_box("top_wall", top_wall, (2, 2, 0.1))
+#scene.add_box("top_wall", top_wall, (2, 2, 0.1))
 
 rospy.sleep(1)
 
@@ -83,7 +89,7 @@ def WithinBoundary():
     maximum_x_boundary = -0.11
     minimum_y_boundary = -0.5
     maximum_y_boundary = 0.490
-    minimum_z_boundary = 0.18
+    minimum_z_boundary = 0.14
     maximum_z_boundary = 0.7
 
     current_pose_x = move_group.get_current_pose().pose.position.x
@@ -127,13 +133,13 @@ def MoveToPosition(target_pose):
 
     move_group.set_pose_target(target_pose)
     plan = move_group.plan()
-    move_group.set_max_velocity_scaling_factor(0.03)
+    move_group.set_max_velocity_scaling_factor(0.04)
     # Turn check to True
     checkBoundary = True
     checkFinished = False
     checkEmergencyStop = False
 
-    tester = move_group.get_current_joint_values()
+    #tester = move_group.get_current_joint_values()
 
     if (plan):
         plan = move_group.go(wait=False)
@@ -190,7 +196,7 @@ def HandFollowing():
     maximum_x_boundary = -0.11
     minimum_y_boundary = -0.5
     maximum_y_boundary = 0.490
-    minimum_z_boundary = 0.18
+    minimum_z_boundary = 0.14
     maximum_z_boundary = 0.7
     while 1:
         try:
@@ -217,33 +223,37 @@ def separation(p1,p2):
     sep = ((dX)**2+(dY)**2+(dZ)**2)**0.5
     return sep #returns distance between points and angle in radians from point 1
 
-def cost(point, joints, weight):
+def cp_cost(point, joints, weight):
     # calculates the cost associated with a point due to surrounding joints
     cost = 0
     for joint in joints:
-        cost = 1/separation(point, joint)^2 + cost
+        cost = weight/separation(point, joint)**2 + cost
     return cost
 
 def next_move(r, joints, target): #r is range for each movement, joint is array of joints [[x1, y1, z1], [x2,y2,z2]...], target is coord also
-    x = move_group.get_current_pose().pose.x
-    y = move_group.get_current_pose().pose.y
-    z = move_group.get_current_pose().pose.z
+    x = move_group.get_current_pose().pose.position.x
+    y = move_group.get_current_pose().pose.position.y
+    z = move_group.get_current_pose().pose.position.z
     poses = [[x,y,z],[x+r,y,z],[x-r,y,z],[x+r,y+r,z],[x+r,y-r,z],[x-r,y+r,z],[x-r,y-r,z],[x+r,y,z+r],
     [x+r,y,z-r],[x-r,y,z+r],[x-r,y,z-r],[x+r,y+r,z+r],[x+r,y+r,z-r],[x+r,y-r,z+r],[x+r,y-r,z-r],
     [x-r,y+r,z+r],[x-r,y+r,z-r], [x-r,y-r,z+r],[x-r,y-r,z-r], [x,y+r,z],[x,y-r,z],[x,y+r,z+r],
     [x,y+r,z-r],[x,y-r,z+r],[x,y-r,z-r],[x,y,z+r],[x,y,z-r]]
 
-    if separation(pose[0], target)<= r:
-        return target
+    if separation(poses[0], target)<= r:
+        target_weight = 0
+    else:
+        target_weight = 1
+    #    return target 
 
     min_cost = 1000000
-    target_weight = 10
+    target_weight = 2
     joint_weight = 1
     for pose in poses:
-        cost = cost(pose, joints, joint_weight) - (10/separation(pose, target)) #change value to weight target more heavily / less heavily, should this be squared?
+        cost = cp_cost(pose, joints, joint_weight) - (target_weight/separation(pose, target)) #change value to weight target more heavily / less heavily, should this be squared?
         if cost < min_cost:
             min_cost = cost
             min_pose = pose
+    
     return min_pose # the most cost effective pose to move to
 
 ############################################### CALLBACK FUNCTIONS (FOR SUBCRIBER) ######################################################
@@ -283,33 +293,87 @@ rospy.Subscriber('/joint_coordinates', Float64MultiArray, joint_coordinates_call
 #Create a position saving variable
 position_data = []
 
+print("check")
+
 #Is a global until FSM is set up
 checkEmergencyStop = False
 
 goal = geometry_msgs.msg.Pose()
+
+'''while 1:  
+    l_hand = [joint_coords[24], joint_coords[25], joint_coords[26]]
+    hand_pos = geometry_msgs.msg.PoseStamped()
+    hand_pos.header.frame_id = robot.get_planning_frame()
+    hand_pos.pose.position.x = l_hand[0]
+    hand_pos.pose.position.y = l_hand[1]
+    hand_pos.pose.position.z = l_hand[2]
+    scene.add_box("left hand", hand_pos, (0.1, 0.1, 0.1))
+    sep = separation(l_hand, [-0.3,0.2,0.2])
+    print("Left hand is at:", l_hand[0], l_hand[1], l_hand[2])
+    print("Distance from target:", sep)
+    rospy.sleep(0.5)
+
+    next_pos = next_move(0.1, [l_hand], [-0.56,-0.2,0.21])
+    print("Moving to:", next_pos[0], next_pos[1], next_pos[2])
+    pose_1 = geometry_msgs.msg.Pose()
+    pose_1.position.x = next_pos[0]
+    pose_1.position.y = next_pos[1]
+    pose_1.position.z = next_pos[2]
+    pose_1.orientation.x = move_group.get_current_pose().pose.orientation.x
+    pose_1.orientation.y = move_group.get_current_pose().pose.orientation.y
+    pose_1.orientation.z = move_group.get_current_pose().pose.orientation.z
+    pose_1.orientation.w = move_group.get_current_pose().pose.orientation.w
+    MoveToPosition(pose_1)
+    print("Finished moving to pose")
+    rospy.sleep(0.5)'''
+
+target = [-0.56, -0.2, 0.2]
 
 
 
 
 while 1:
     try:
+        
         l_hand = [joint_coords[24], joint_coords[25], joint_coords[26]]
-        sep = separation(l_hand, [-0.7,0.4,0.2])
+        print("trying")
+        hand_pos = geometry_msgs.msg.PoseStamped()
+        hand_pos.header.frame_id = robot.get_planning_frame()
+        hand_pos.pose.position.x = l_hand[0]
+        hand_pos.pose.position.y = l_hand[1]
+        hand_pos.pose.position.z = l_hand[2]
+        scene.add_box("left hand", hand_pos, (0.1, 0.1, 0.1))
+        
         print("Left hand is at:", l_hand[0], l_hand[1], l_hand[2])
+
+        next_pos = next_move(0.1, [l_hand], target)
+        sep = separation(l_hand, target)
         print("Distance from target:", sep)
+        print("Moving to:", next_pos[0], next_pos[1], next_pos[2])
+        
+        pose_1 = geometry_msgs.msg.Pose()
+        pose_1.position.x = next_pos[0]
+        pose_1.position.y = next_pos[1]
+        pose_1.position.z = next_pos[2]
+        pose_1.orientation.x = move_group.get_current_pose().pose.orientation.x
+        pose_1.orientation.y = move_group.get_current_pose().pose.orientation.y
+        pose_1.orientation.z = move_group.get_current_pose().pose.orientation.z
+        pose_1.orientation.w = move_group.get_current_pose().pose.orientation.w
+        MoveToPosition(pose_1)
+        print("Finished moving to pose")
         rospy.sleep(0.5)
     except:
         pass
     
 
 
-#HandFollowing()
+#HandFollowing()'''
 
 #Notes
 #z 0.45 limit
+'''
 
-
-'''goal.position.x = -0.56
+goal.position.x = -0.56
 goal.position.y = 0.2
 goal.position.z = 0.21
 goal.orientation.x = move_group.get_current_pose().pose.orientation.x
@@ -320,7 +384,7 @@ goal.orientation.w = move_group.get_current_pose().pose.orientation.w
 # Define the first target pose
 pose_1 = geometry_msgs.msg.Pose()
 pose_1.position.x = -0.56
-pose_1.position.y = 0.2
+pose_1.position.y = 0.20
 pose_1.position.z = 0.21
 pose_1.orientation.x = move_group.get_current_pose().pose.orientation.x
 pose_1.orientation.y = move_group.get_current_pose().pose.orientation.y
@@ -330,7 +394,7 @@ pose_1.orientation.w = move_group.get_current_pose().pose.orientation.w
 # Define the second target pose
 pose_2 = geometry_msgs.msg.Pose()
 pose_2.position.x = -0.56
-pose_2.position.y = -0.2
+pose_2.position.y = -0.20
 pose_2.position.z = 0.21
 pose_2.orientation.x = move_group.get_current_pose().pose.orientation.x
 pose_2.orientation.y = move_group.get_current_pose().pose.orientation.y
@@ -340,7 +404,7 @@ pose_2.orientation.w = move_group.get_current_pose().pose.orientation.w
 # Define the third target pose
 pose_3 = geometry_msgs.msg.Pose()
 pose_3.position.x = -0.56
-pose_3.position.y = -0.4
+pose_3.position.y = -0.40
 pose_3.position.z = 0.21
 pose_3.orientation.x = move_group.get_current_pose().pose.orientation.x
 pose_3.orientation.y = move_group.get_current_pose().pose.orientation.y
@@ -350,8 +414,8 @@ pose_3.orientation.w = move_group.get_current_pose().pose.orientation.w
 # Define the fourth target pose
 pose_4 = geometry_msgs.msg.Pose()
 pose_4.position.x = -0.56
-pose_4.position.y = -0.4
-pose_4.position.z = 0.4
+pose_4.position.y = -0.40
+pose_4.position.z = 0.40
 pose_4.orientation.x = move_group.get_current_pose().pose.orientation.x
 pose_4.orientation.y = move_group.get_current_pose().pose.orientation.y
 pose_4.orientation.z = move_group.get_current_pose().pose.orientation.z
