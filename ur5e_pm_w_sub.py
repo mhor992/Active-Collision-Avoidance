@@ -476,7 +476,7 @@ while 1:
         joints_list = update_joints(joint_coords) # JOINTS PUBLISHER MUST BE RUNNING
         print("joints identified")
         print("Left hand is at:", joints_list[2]) # DEBUGGING / CHECKING
-        next_pos = next_move(joints_list, target, ws_array)
+        next_pos = next_move(joints_list, target1, ws_array)
         print("Moving to:", next_pos)
         
         pose_1 = geometry_msgs.msg.Pose()
