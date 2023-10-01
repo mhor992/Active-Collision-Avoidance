@@ -4,13 +4,13 @@ import rospy
 from std_msgs.msg import Float64MultiArray
 
 def transform_coords(x,y,z):
-    tx = -y/-907 -0.63
-    ty = -x/-965 - 0.27
-    tz = -z/1216 +1.17
+    tx = 0.0011 * y - 0.5986
+    ty = 0.0009 * x - 0.2409
+    tz = -0.0011 * z + 1.3665
     return [tx, ty, tz]
 
 if __name__ == "__main__":
-    # Initialize ROS node
+    # Initialize ROS nodeW
     rospy.init_node('kinect_skeleton_publisher')
 
     # Initialize the library, if the library is not found, add the library path as an argument

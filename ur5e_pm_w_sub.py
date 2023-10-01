@@ -30,7 +30,7 @@ move_group.set_planner_id("RRTConnectkConfigDefault")
 
 # set tolerance & velocity factor
 move_group.set_goal_position_tolerance(0.01)
-move_group.set_max_velocity_scaling_factor(0.05)
+move_group.set_max_velocity_scaling_factor(0.2)
 #move_group.set_planning_time(25.0)
 
 rospy.loginfo("Start")
@@ -134,23 +134,29 @@ def AppendData():
 ############################################### MOVEMENT FUNCTIONS ######################################################
 def escape():
     current_pose = current_position()
+    joints_list = update_joints(joint_coords)
     print("in escape")
+    #rospy.sleep(1.0)
+    min_sep = 1000
             
     for joint in joints_list:
         sep = separation(current_pose, joint)
-        print(sep)
-        if sep <= 0.4: # if joints is within 0.2 of tcp
-            print("Current pose is:", current_pose, "joint is", joint)
-            f = 0.4/sep # wil go x (0.3) from closest joint
-            v = numpy.subtract(current_pose, joint) # numpy.subtract
-            v_scaled = [f * v[0], f * v[1], f * v[2]]
-            retreat = PoseMaker(joint[0] + v_scaled[0], joint[1] + v_scaled[1], joint[2] + v_scaled[2])
-            print("Currently at", current_pose)
-            print("Retreating to", retreat)
-            move_group.set_pose_target(retreat)
-            move_group.plan()
-            move_group.go(wait=True)
-            rospy.sleep(0.5)
+        if sep <= min_sep:
+            min_joint = joint
+            min_sep = sep
+
+    if  min_sep <= 0.4: # if joints is within 0.2 of tcp
+        print ("Separation is:", min_sep)
+        print("Current pose is:", current_pose, "joint is", min_joint)
+        f = 1.5 # wil go x (0.3) from closest joint
+        v = numpy.subtract(current_pose, min_joint) # numpy.subtract
+        v_scaled = [f * v[0], f * v[1], f * v[2]]
+        retreat = PoseMaker(min_joint[0] + v_scaled[0], min_joint[1] + v_scaled[1], min_joint[2] + v_scaled[2])
+        print("Retreating to", retreat)
+        move_group.set_pose_target(retreat)
+        move_group.plan()
+        move_group.go(wait=True)
+        #rospy.sleep(1.0)
 
 def current_position():
     current_pose_x = move_group.get_current_pose().pose.position.x
@@ -177,8 +183,7 @@ def MoveToPosition(target_pose):
 
         while(in_bound is True and in_target is False and in_emergency is False):
             # Check position
-            rospy.sleep(0.25)
-            print("in loop")
+            rospy.sleep(0.1)
             in_bound = WithinBoundary()
             in_target = WithinTarget(target_pose)
             in_emergency = CheckEmergencyStop()
@@ -230,22 +235,19 @@ def CheckEmergencyStop(): # Recent changes, add joint retrival funcitonal call a
     threshold = 0.3 # CHANGE THIS TO BEGIN TESTING
     #Checks to see if any robot joints are close to collision with human joints
     #Currently only for robot end effector - Ideas => Manual calculation of inverse kinematics for calculating other joint positions
-    print("in 'CheckEmergency' function")
     current_pose = current_position()
 
     
     joints_list = update_joints(joint_coords) # WILL ONLY WORK IF BODY IS DETECTED
-    print("Flag 1")
     for joint in joints_list:
         sep = separation(current_pose, joint)
         if sep <= threshold:
             print("Emergency True")
-            print("TCP is", sep, "from closest a joint")
+            print("TCP is", sep, "from closest a joint at", joint)
             rospy.loginfo("Current Position X:{} Y:{} Z:{}".format(current_pose[0], current_pose[1], current_pose[2]))
             rospy.loginfo("EMERGENCY STOP")
             return True
-    
-    print("Emergency False")
+
     return False
         
 def HandFollowing():
@@ -368,55 +370,55 @@ def update_joints(joint_coords):
     HEAD = [joint_coords[78], joint_coords[79], joint_coords[80]]
 
     joints = [SHOULDER_LEFT, ELBOW_LEFT, HAND_LEFT, SHOULDER_RIGHT, ELBOW_RIGHT,HAND_RIGHT,HEAD]
-    
+
     SHOULDER_LEFT_p = geometry_msgs.msg.PoseStamped()
     SHOULDER_LEFT_p.header.frame_id = robot.get_planning_frame()
     SHOULDER_LEFT_p.pose.position.x = joints[0][0]
     SHOULDER_LEFT_p.pose.position.y = joints[0][1]
     SHOULDER_LEFT_p.pose.position.z = joints[0][2]
-    scene.add_box("SHOULDER_LEFT", SHOULDER_LEFT_p, (0.1, 0.1, 0.1))
+    scene.add_box("SHOULDER_LEFT", SHOULDER_LEFT_p, (0.2, 0.2, 0.2))
     
     ELBOW_LEFT_p = geometry_msgs.msg.PoseStamped()
     ELBOW_LEFT_p.header.frame_id = robot.get_planning_frame()
     ELBOW_LEFT_p.pose.position.x = joints[1][0]
     ELBOW_LEFT_p.pose.position.y = joints[1][1]
     ELBOW_LEFT_p.pose.position.z = joints[1][2]
-    scene.add_box("ELBOW_LEFT", ELBOW_LEFT_p, (0.1, 0.1, 0.1))
+    scene.add_box("ELBOW_LEFT", ELBOW_LEFT_p, (0.2, 0.2, 0.2))
     
     HAND_LEFT_p = geometry_msgs.msg.PoseStamped()
     HAND_LEFT_p.header.frame_id = robot.get_planning_frame()
     HAND_LEFT_p.pose.position.x = joints[2][0]
     HAND_LEFT_p.pose.position.y = joints[2][1]
     HAND_LEFT_p.pose.position.z = joints[2][2]
-    scene.add_box("HAND_LEFT", HAND_LEFT_p, (0.1, 0.1, 0.1))
+    scene.add_box("HAND_LEFT", HAND_LEFT_p, (0.2, 0.2, 0.2))
     
     SHOULDER_RIGHT_p = geometry_msgs.msg.PoseStamped()
     SHOULDER_RIGHT_p.header.frame_id = robot.get_planning_frame()
     SHOULDER_RIGHT_p.pose.position.x = joints[3][0]
     SHOULDER_RIGHT_p.pose.position.y = joints[3][1]
     SHOULDER_RIGHT_p.pose.position.z = joints[3][2]
-    scene.add_box("SHOULDER_RIGHT", SHOULDER_RIGHT_p, (0.1, 0.1, 0.1))
+    scene.add_box("SHOULDER_RIGHT", SHOULDER_RIGHT_p, (0.2, 0.2, 0.2))
     
     ELBOW_RIGHT_p = geometry_msgs.msg.PoseStamped()
     ELBOW_RIGHT_p.header.frame_id = robot.get_planning_frame()
     ELBOW_RIGHT_p.pose.position.x = joints[4][0]
     ELBOW_RIGHT_p.pose.position.y = joints[4][1]
     ELBOW_RIGHT_p.pose.position.z = joints[4][2]
-    scene.add_box("ELBOW_RIGHT", ELBOW_RIGHT_p, (0.1, 0.1, 0.1))
+    scene.add_box("ELBOW_RIGHT", ELBOW_RIGHT_p, (0.2, 0.2, 0.2))
     
     HAND_RIGHT_p = geometry_msgs.msg.PoseStamped()
     HAND_RIGHT_p.header.frame_id = robot.get_planning_frame()
     HAND_RIGHT_p.pose.position.x = joints[5][0]
     HAND_RIGHT_p.pose.position.y = joints[5][1]
     HAND_RIGHT_p.pose.position.z = joints[5][2]
-    scene.add_box("HAND_RIGHT", HAND_RIGHT_p, (0.1, 0.1, 0.1))
+    scene.add_box("HAND_RIGHT", HAND_RIGHT_p, (0.2, 0.2, 0.2))
     
     HEAD_p = geometry_msgs.msg.PoseStamped()
     HEAD_p.header.frame_id = robot.get_planning_frame()
     HEAD_p.pose.position.x = joints[6][0]
     HEAD_p.pose.position.y = joints[6][1]
     HEAD_p.pose.position.z = joints[6][2]
-    scene.add_box("HEAD", HEAD_p, (0.1, 0.1, 0.1))
+    scene.add_box("HEAD", HEAD_p, (0.2, 0.2, 0.2))
         
     return joints
 
@@ -435,6 +437,13 @@ checkEmergencyStop = False
 goal = geometry_msgs.msg.Pose()
 target1 = [-0.56, 0.4, 0.3]
 target2 = [-0.56, -0.4, 0.3]
+
+''' FOR POSITION CHECKING / CALIBRATION
+while 1:
+    cp = current_position()
+    print(cp[0], cp[1], cp[2])
+    rospy.sleep(1.0)
+'''
 
 global joint_coords
 
@@ -493,12 +502,13 @@ while 1:
     except:
         pass
 
+
     
 
 
 #HandFollowing()'''
 
-'''
+
 #Notes
 #z 0.45 limit
 goal.position.x = -0.56
@@ -573,4 +583,4 @@ with open('position_physical.csv', 'a', newline='') as csvfile:
     
     # Write the position data
     csv_writer.writerows(position_data)
-'''
+
