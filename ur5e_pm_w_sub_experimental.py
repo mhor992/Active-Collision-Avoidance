@@ -216,55 +216,105 @@ def current_position():
 
     return current_pose
 
-def MoveToPosition(target_pose):
+# def MoveToPosition(target_pose):
        
-    if CheckEmergencyStop():
-        escape()
+#     if CheckEmergencyStop():
+#         escape()
 
-    # Turn check to True
+    # # Turn check to True
+    # in_bound = True
+    # in_target = False
+    # in_emergency = False   
+
+#     while in_target is False:
+  
+#         joints_list = update_joints(joint_coords)
+#         plan = False
+#         target_xyz = [target_pose.position.x, target_pose.position.y, target_pose.position.z]
+#         next_position = next_move(joints_list, target_xyz, ws_array)
+#         next_pose = PoseMaker(next_position[0], next_position[1], next_position[2])
+                
+#         move_group.set_pose_target(next_pose)
+#         in_bound = WithinBoundary()
+#         in_emergency = CheckEmergencyStop()
+#         in_emergency_non_tcp = CheckNonTcp()
+        
+#         if (in_bound is True and in_target is False and in_emergency is False):
+#             while plan is False:
+#                 print("planning movement to:", next_pose)
+#                 joints_list = update_joints(joint_coords)
+#                 plan = move_group.plan()
+#             move_group.go(wait=False)
+
+#         while(in_bound is True and in_target is False and in_emergency is False):
+#             # Check position
+#             # rospy.sleep(0.1)
+            # in_bound = WithinBoundary()
+            # in_target = WithinTarget(next_pose)
+            # in_emergency = CheckEmergencyStop()
+            # in_emergency_non_tcp = CheckNonTcp()
+#             #AppendData()
+#             # Stop the robot and clear pose targets
+        
+#         move_group.stop() # something has happened, stop the robot
+#         move_group.clear_pose_targets()
+
+#         in_target = WithinTarget(target_pose)
+
+#         while in_emergency_non_tcp is True:
+#             in_emergency_non_tcp = CheckNonTcp()
+#             # rospy.sleep(0.1)
+
+#         if in_emergency is True:
+#             escape()
+#             print("escaping")
+#             in_emergency = False
+
+#         elif in_bound is False:
+#             print("out of bounds") # update this later
+#             boundary_exception()
+#             in_bound = True     
+# 
+def MoveToPosition(finalPose):
+    # Turn checks to True
     in_bound = True
     in_target = False
-    in_emergency = False   
+    in_final_target = False
+    in_emergency = False 
 
-    while in_target is False:
-  
-        joints_list = update_joints(joint_coords)
-        plan = False
-        target_xyz = [target_pose.position.x, target_pose.position.y, target_pose.position.z]
-        next_position = next_move(joints_list, target_xyz, ws_array)
-        next_pose = PoseMaker(next_position[0], next_position[1], next_position[2])
-                
-        move_group.set_pose_target(next_pose)
-        in_bound = WithinBoundary()
-        in_emergency = CheckEmergencyStop()
-        in_emergency_non_tcp = CheckNonTcp()
-        
-        if (in_bound is True and in_target is False and in_emergency is False):
-            while plan is False:
-                print("planning movement to:", next_pose)
-                joints_list = update_joints(joint_coords)
-                plan = move_group.plan()
-            move_group.go(wait=False)
+    while in_final_target is False:
+        #Run while not in final pose
+        in_final_target = WithinTarget(finalPose)
+        target_poses = planPath(finalPose)
 
-        while(in_bound is True and in_target is False and in_emergency is False):
-            # Check position
-            # rospy.sleep(0.1)
-            in_bound = WithinBoundary()
-            in_target = WithinTarget(next_pose)
-            in_emergency = CheckEmergencyStop()
-            in_emergency_non_tcp = CheckNonTcp()
-            #AppendData()
-            # Stop the robot and clear pose targets
+        #Run while all conditions are met
+        while in_bound is True and in_target is False and in_emergency is False:
+
+            current_target_pose = PoseMaker(target_poses[0][0], target_poses[0][1], target_poses[0][2])
+            move_group.set_pose_target(current_target_pose)
+
+            plan = move_group.plan()
+            if plan:
+                move_group.go(wait=False)
+
+                #Check boundaries and target pose
+                in_bound = WithinBoundary()
+                in_target = WithinTarget(current_target_pose)
+
+                #Check emergency stop
+                in_emergency = CheckEmergencyStop()
+
+                #Could add in Check collision for path
+                if CheckPathCollision(target_poses) is True:
+                    #Replan the path
+                    target_poses = planPath(finalPose)
+                #Or else continue through the loop
         
+        #Occurs when conditions are not met, stop the robot
         move_group.stop() # something has happened, stop the robot
         move_group.clear_pose_targets()
 
-        in_target = WithinTarget(target_pose)
-
-        while in_emergency_non_tcp is True:
-            in_emergency_non_tcp = CheckNonTcp()
-            # rospy.sleep(0.1)
-
+        #Perform checks are relevant actions
         if in_emergency is True:
             escape()
             print("escaping")
@@ -273,22 +323,49 @@ def MoveToPosition(target_pose):
         elif in_bound is False:
             print("out of bounds") # update this later
             boundary_exception()
-            in_bound = True                
+            in_bound = True    
+
+
+def planPath(finalPose):
+
+    posePath = []
+    path = []
+    current_position = current_position()
+    
+    dX = finalPose[0]-current_position[0]
+    dY = finalPose[1]-current_position[1]
+    dZ = finalPose[2]-current_position[2]
+    sep = ((dX)**2+(dY)**2+(dZ)**2)**0.5
+
+    num_segments = sep/0.2
+
+    #Assume a straight line and cut it into points
+
+    for positions in range(num_segments):
+        posePath[positions] = [current_position[0] + dX * (positions + 1/num_segments), current_position[1] + dY * (positions + 1/num_segments), current_position[2] + dZ * (positions + 1/num_segments)]
+
+    #Use next_move function to calculate the best move given human joints
+    for positions in enumerate(posePath):
+        path[positions] = next_move(joints_list, posePath[positions], ws_array)
+
+    return path
               
-def CheckNonTcp():
-    threshold = 0.1 # in m
-    current_joints = GetRobotJointPositions()
+def CheckPathCollision(target_poses):
+    
+    path_collision_threshold = 0.25
 
     joints_list = update_joints(joint_coords)
-    for r_joint in current_joints:
+
+    for poses in target_poses:
+        #Check for collisions between each robot joint and each human joint
         for h_joint in joints_list:
-            sep = separation(r_joint, h_joint)
-            if sep <= threshold:
-                print("Robot is too close to non-tcp joint")
-                print("Separation is", sep, "from joint at: ", r_joint)
+            sep = separation(poses, h_joint)
+            if sep <= path_collision_threshold:
+                print("Human is too close to robot path")
+                print("Separation is", sep, "from joint at: ", poses)
                 return True
-            
     return False 
+    
 
 def PoseMaker(x, y, z):
     #Generates and returns a target pose with x y z cartesian coordinates as an input
@@ -303,28 +380,22 @@ def PoseMaker(x, y, z):
 
     return target_pose
 
-def MoveToCartesian(x, y ,z):
-    #Moves to a target position using x y z cartesian coordinates as an input.
-    target_pose = PoseMaker(x, y, z)
-    MoveToPosition(target_pose)
+def CheckEmergencyStop():
 
-def CheckEmergencyStop(): # Recent changes, add joint retrival functional call and try /except in case body not detected (or there is none to detect)
-    threshold = 0.3 # CHANGE THIS TO BEGIN TESTING
-    #Checks to see if any robot joints are close to collision with human joints
-    #Currently only for robot end effector - Ideas => Manual calculation of inverse kinematics for calculating other joint positions
-    current_pose = current_position()
+    collision_threshold = 0.1
 
-    
-    joints_list = update_joints(joint_coords) # WILL ONLY WORK IF BODY IS DETECTED
-    for joint in joints_list:
-        sep = separation(current_pose, joint)
-        if sep <= threshold:
-            print("Emergency True")
-            print("TCP is", sep, "from closest a joint at", joint)
-            rospy.loginfo("Current Position X:{} Y:{} Z:{}".format(current_pose[0], current_pose[1], current_pose[2]))
-            rospy.loginfo("EMERGENCY STOP")
-            return True      
-    return False
+    current_robot_joints = GetRobotJointPositions()
+    joints_list = update_joints(joint_coords)
+
+    for r_joint in current_robot_joints:
+        #Check for collisions between each robot joint and each human joint
+        for h_joint in joints_list:
+            sep = separation(r_joint, h_joint)
+            if sep <= collision_threshold:
+                print("Robot is too close to joints")
+                print("Separation is", sep, "from joint at: ", r_joint)
+                return True
+    return False 
         
 def HandFollowing():
 
@@ -421,20 +492,6 @@ def joint_coordinates_callback(data):
     # doing some global stuff
 
 ################################################ SENSOR PROCESSING#########################################################################
-# def GetJointPositions():
-
-#     try:
-#         joint_pos = [None] * 32
-
-#         for joint in range(0, 32):
-#             index_length = 3 * joint
-#             joint_pos[joint] = [1, 2, 3]
-#             joint_pos[joint] = [joint_coords[0 + index_length], joint_coords[1 + index_length], joint_coords[2 + index_length]]
-
-#         return joint_pos    
-#     except:
-#         joint_pos = [[999, 999, 999]]
-#         return joint_pos
     
 def GetRobotJointPositions():
 
