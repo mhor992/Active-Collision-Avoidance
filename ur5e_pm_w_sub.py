@@ -16,6 +16,7 @@ import geometry_msgs.msg
 import sys
 import math
 import csv
+from visual_kinematics.RobotSerial import *
 from moveit_commander import conversions
 from std_msgs.msg import Float64MultiArray
 
@@ -30,7 +31,7 @@ move_group.set_planner_id("RRTConnectkConfigDefault")
 
 # set tolerance & velocity factor
 move_group.set_goal_position_tolerance(0.01)
-move_group.set_max_velocity_scaling_factor(0.2)
+move_group.set_max_velocity_scaling_factor(0.08)
 #move_group.set_planning_time(25.0)
 
 rospy.loginfo("Start")
@@ -132,12 +133,58 @@ def AppendData():
     current_pose = current_position
     position_data.append(current_pose)
 ############################################### MOVEMENT FUNCTIONS ######################################################
+def boundary_exception():
+    print("boundary exception triggered")
+    cp = current_position()
+    bound_move = cp
+
+    if cp[0] <= minimum_x_boundary:
+        bound_move = PoseMaker(minimum_x_boundary + 0.05, cp[1], cp[2])
+    elif cp[0] >= maximum_x_boundary:
+        bound_move = PoseMaker(maximum_x_boundary - 0.05, cp[1], cp[2])
+    elif cp[1] <= minimum_y_boundary:
+        bound_move = PoseMaker(cp[0], minimum_y_boundary + 0.05, cp[2])
+    elif cp[1] >= maximum_y_boundary:
+        bound_move = PoseMaker(cp[0], maximum_y_boundary - 0.05, cp[2])
+    elif cp[2] <= minimum_z_boundary:
+        bound_move = PoseMaker(cp[0], cp[1], minimum_z_boundary + 0.05)
+    elif cp[2] >= maximum_z_boundary:
+        bound_move = PoseMaker(cp[0], cp[1], maximum_z_boundary - 0.05)
+
+    move_group.set_pose_target(bound_move)    
+    
+    while plan is False:
+        print("planning boundary move")        
+        joints_list = update_joints(joint_coords)    
+        plan = move_group.plan()
+    print("moving to:", bound_move)
+    move_group.go(wait=True)   
+    
+def saturate_bounds(x, y, z):
+    if x <= minimum_x_boundary:
+        x = minimum_x_boundary + 0.05
+    elif x >= maximum_x_boundary:
+        x = maximum_x_boundary - 0.05
+    
+    if y <= minimum_y_boundary:
+        y = minimum_y_boundary + 0.05
+    elif y >= maximum_y_boundary:
+        y = maximum_y_boundary - 0.05
+    
+    if z <= minimum_z_boundary:
+        z = minimum_z_boundary + 0.05
+    elif z >= maximum_z_boundary:
+        z = maximum_z_boundary - 0.05
+
+    return [x, y, z]
+
 def escape():
     current_pose = current_position()
     joints_list = update_joints(joint_coords)
     print("in escape")
     #rospy.sleep(1.0)
     min_sep = 1000
+    plan = False
             
     for joint in joints_list:
         sep = separation(current_pose, joint)
@@ -151,10 +198,13 @@ def escape():
         f = 1.5 # wil go x (0.3) from closest joint
         v = numpy.subtract(current_pose, min_joint) # numpy.subtract
         v_scaled = [f * v[0], f * v[1], f * v[2]]
-        retreat = PoseMaker(min_joint[0] + v_scaled[0], min_joint[1] + v_scaled[1], min_joint[2] + v_scaled[2])
+        sat_p = saturate_bounds(min_joint[0] + v_scaled[0], min_joint[1] + v_scaled[1], min_joint[2] + v_scaled[2])
+        retreat = PoseMaker(sat_p[0], sat_p[1], sat_p[2])
         print("Retreating to", retreat)
         move_group.set_pose_target(retreat)
-        move_group.plan()
+        while plan is False:        
+            joints_list = update_joints(joint_coords)    
+            plan = move_group.plan()
         move_group.go(wait=True)
         #rospy.sleep(1.0)
 
@@ -174,24 +224,46 @@ def MoveToPosition(target_pose):
     # Turn check to True
     in_bound = True
     in_target = False
-    in_emergency = False
+    in_emergency = False   
 
     while in_target is False:
-        move_group.set_pose_target(target_pose)
-        move_group.plan()
-        move_group.go(wait=False)
+  
+        joints_list = update_joints(joint_coords)
+        plan = False
+        target_xyz = [target_pose.position.x, target_pose.position.y, target_pose.position.z]
+        next_position = next_move(joints_list, target_xyz, ws_array)
+        next_pose = PoseMaker(next_position[0], next_position[1], next_position[2])
+                
+        move_group.set_pose_target(next_pose)
+        in_bound = WithinBoundary()
+        in_emergency = CheckEmergencyStop()
+        in_emergency_non_tcp = CheckNonTcp()
+        
+        if (in_bound is True and in_target is False and in_emergency is False):
+            while plan is False:
+                print("planning movement to:", next_pose)
+                joints_list = update_joints(joint_coords)
+                plan = move_group.plan()
+            move_group.go(wait=False)
 
         while(in_bound is True and in_target is False and in_emergency is False):
             # Check position
-            rospy.sleep(0.1)
+            # rospy.sleep(0.1)
             in_bound = WithinBoundary()
-            in_target = WithinTarget(target_pose)
+            in_target = WithinTarget(next_pose)
             in_emergency = CheckEmergencyStop()
+            in_emergency_non_tcp = CheckNonTcp()
             #AppendData()
             # Stop the robot and clear pose targets
         
         move_group.stop() # something has happened, stop the robot
         move_group.clear_pose_targets()
+
+        in_target = WithinTarget(target_pose)
+
+        while in_emergency_non_tcp is True:
+            in_emergency_non_tcp = CheckNonTcp()
+            # rospy.sleep(0.1)
 
         if in_emergency is True:
             escape()
@@ -199,19 +271,24 @@ def MoveToPosition(target_pose):
             in_emergency = False
 
         elif in_bound is False:
-            #minimum_x_boundary = -0.8
-            #maximum_x_boundary = -0.11
-            #minimum_y_boundary = -0.5
-            #maximum_y_boundary = 0.490
-            #minimum_z_boundary = 0.14
-            #maximum_z_boundary = 0.7
-            print("out of bounds") # update this later                
+            print("out of bounds") # update this later
+            boundary_exception()
+            in_bound = True                
               
-    
+def CheckNonTcp():
+    threshold = 0.1 # in m
+    current_joints = GetRobotJointPositions()
 
-
-
-    
+    joints_list = update_joints(joint_coords)
+    for r_joint in current_joints:
+        for h_joint in joints_list:
+            sep = separation(r_joint, h_joint)
+            if sep <= threshold:
+                print("Robot is too close to non-tcp joint")
+                print("Separation is", sep, "from joint at: ", r_joint)
+                return True
+            
+    return False 
 
 def PoseMaker(x, y, z):
     #Generates and returns a target pose with x y z cartesian coordinates as an input
@@ -359,6 +436,77 @@ def GetJointPositions():
     except:
         joint_pos = [[999, 999, 999]]
         return joint_pos
+    
+def GetRobotJointPositions():
+
+    np.set_printoptions(precision=3, suppress=True)
+
+    d1 = 0.163
+    a2 = -0.42500
+    a3 = -0.39225
+    d4 = 0.134      
+    d5 = 0.100
+    d6 = 0.100
+
+    current_joint_pos = move_group.get_current_joint_values()
+
+    dh_params = np.array([[d1, 0, pi/2, 0]])
+    theta = np.array([current_joint_pos[0]])
+    base_joint = getJointPose(dh_params, theta)
+
+    dh_params = np.array([[d1, 0, pi/2, 0],
+                          [0, a2, 0, 0]])
+    theta = np.array([current_joint_pos[0], current_joint_pos[1]])
+    shoulder_joint = getJointPose(dh_params, theta)
+
+    dh_params = np.array([[d1, 0, pi/2, 0],
+                          [0, a2, 0, 0],
+                          [0, a3, 0, 0]])
+    theta = np.array([current_joint_pos[0], current_joint_pos[1], current_joint_pos[2]])
+    elbow_joint = getJointPose(dh_params, theta)
+
+    dh_params = np.array([[d1, 0, pi/2, 0],
+                          [0, a2, 0, 0],
+                          [0, a3, 0, 0],
+                          [d4 , 0, pi/2, 0]])
+    theta = np.array([current_joint_pos[0], current_joint_pos[1], current_joint_pos[2], current_joint_pos[3]])
+    wrist_1_joint = getJointPose(dh_params, theta)
+
+    dh_params = np.array([[d1, 0, pi/2, 0],
+                          [0, a2, 0, 0],
+                          [0, a3, 0, 0],
+                          [d4 , 0, pi/2, 0],
+                          [d5, 0, -pi/2, 0]])
+    theta = np.array([current_joint_pos[0], current_joint_pos[1], current_joint_pos[2], current_joint_pos[3], current_joint_pos[4]])
+    wrist_2_joint = getJointPose(dh_params, theta)
+
+    dh_params = np.array([[d1, 0, pi/2, 0],
+                          [0, a2, 0, 0],
+                          [0, a3, 0, 0],
+                          [d4, 0, pi/2, 0],
+                          [d5, 0, -pi/2, 0],
+                          [d6, 0, 0, 0]])
+    theta = np.array([current_joint_pos[0], current_joint_pos[1], current_joint_pos[2], current_joint_pos[3], current_joint_pos[4], current_joint_pos[5]])
+    wrist_3_joint = getJointPose(dh_params, theta)
+
+    base_joint = [-base_joint[0], -base_joint[1], base_joint[2]]
+    shoulder_joint = [-shoulder_joint[0], -shoulder_joint[1], shoulder_joint[2]]
+    elbow_joint = [-elbow_joint[0], -elbow_joint[1], elbow_joint[2]]
+    wrist_1_joint = [-wrist_1_joint[0], -wrist_1_joint[1], wrist_1_joint[2]]
+    wrist_2_joint = [-wrist_2_joint[0], -wrist_2_joint[1], wrist_2_joint[2]]
+    wrist_3_joint = [-wrist_3_joint[0], -wrist_3_joint[1], wrist_3_joint[2]]
+
+    joint_positions = [base_joint, shoulder_joint, elbow_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint]
+    #print(joint_positions)
+
+    return joint_positions
+
+def getJointPose(dh_params, theta):
+    np.set_printoptions(precision=3, suppress=True)
+    robot = RobotSerial(dh_params)
+    f = robot.forward(theta)
+    return f.t_3_1.reshape([3, ])
+
 
 def update_joints(joint_coords):
     SHOULDER_LEFT = [joint_coords[15], joint_coords[16], joint_coords[17]]
@@ -429,6 +577,7 @@ rospy.Subscriber('/joint_coordinates', Float64MultiArray, joint_coordinates_call
 
 #Create a position saving variable
 position_data = []
+global ws_array
 ws_array = init_ws_array(20)
 print("check")
 
@@ -449,6 +598,9 @@ global joint_coords
 
 joint_coords = numpy.zeros(96) # initialize joint coords
 
+a = move_group.get_current_pose()
+b = GetRobotJointPositions()
+
 while 1:
     # stall while no body detected
     if joint_coords[0] != 0:
@@ -460,7 +612,7 @@ while 1:
         pose_1 = PoseMaker(next_pos[0], next_pos[1], next_pos[2])
         MoveToPosition(pose_1)
         print("Finished moving to pose")
-        rospy.sleep(2.0)
+        rospy.sleep(0.5)
 
         # Second Movement
         joints_list = update_joints(joint_coords) # JOINTS PUBLISHER MUST BE RUNNING
@@ -470,7 +622,7 @@ while 1:
         pose_1 = PoseMaker(next_pos[0], next_pos[1], next_pos[2])
         MoveToPosition(pose_1)
         print("Finished moving to pose")
-        rospy.sleep(2.0)
+        rospy.sleep(0.5)
 
     elif 1:
         rospy.sleep(1.0)
