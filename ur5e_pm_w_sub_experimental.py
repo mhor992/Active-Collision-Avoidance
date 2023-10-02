@@ -308,7 +308,7 @@ def MoveToCartesian(x, y ,z):
     target_pose = PoseMaker(x, y, z)
     MoveToPosition(target_pose)
 
-def CheckEmergencyStop(): # Recent changes, add joint retrival funcitonal call and try /except in case body not detected (or there is none to detect)
+def CheckEmergencyStop(): # Recent changes, add joint retrival functional call and try /except in case body not detected (or there is none to detect)
     threshold = 0.3 # CHANGE THIS TO BEGIN TESTING
     #Checks to see if any robot joints are close to collision with human joints
     #Currently only for robot end effector - Ideas => Manual calculation of inverse kinematics for calculating other joint positions
@@ -421,20 +421,20 @@ def joint_coordinates_callback(data):
     # doing some global stuff
 
 ################################################ SENSOR PROCESSING#########################################################################
-def GetJointPositions():
+# def GetJointPositions():
 
-    try:
-        joint_pos = [None] * 32
+#     try:
+#         joint_pos = [None] * 32
 
-        for joint in range(0, 32):
-            index_length = 3 * joint
-            joint_pos[joint] = [1, 2, 3]
-            joint_pos[joint] = [joint_coords[0 + index_length], joint_coords[1 + index_length], joint_coords[2 + index_length]]
+#         for joint in range(0, 32):
+#             index_length = 3 * joint
+#             joint_pos[joint] = [1, 2, 3]
+#             joint_pos[joint] = [joint_coords[0 + index_length], joint_coords[1 + index_length], joint_coords[2 + index_length]]
 
-        return joint_pos    
-    except:
-        joint_pos = [[999, 999, 999]]
-        return joint_pos
+#         return joint_pos    
+#     except:
+#         joint_pos = [[999, 999, 999]]
+#         return joint_pos
     
 def GetRobotJointPositions():
 
