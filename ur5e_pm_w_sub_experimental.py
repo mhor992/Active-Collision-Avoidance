@@ -282,11 +282,11 @@ def MoveToPosition(finalPose):
     in_final_target = False
     in_emergency = False 
 
+    in_final_target = WithinTarget(finalPose)
     while in_final_target is False:
         #Run while not in final pose
         in_final_target = WithinTarget(finalPose)
         target_poses = planPath(finalPose)
-
         #Run while all conditions are met
         while in_bound is True and in_target is False and in_emergency is False:
 
@@ -324,6 +324,8 @@ def MoveToPosition(finalPose):
             print("out of bounds") # update this later
             boundary_exception()
             in_bound = True    
+        if in_target is True:
+            in_target = False
 
 
 def planPath(finalPose):
@@ -331,22 +333,27 @@ def planPath(finalPose):
     posePath = []
     path = []
     current_pose = current_position()
+
+    joints_list = update_joints(joint_coords)
     
     dX = finalPose.position.x-current_pose[0]
     dY = finalPose.position.y-current_pose[1]
     dZ = finalPose.position.z-current_pose[2]
     sep = ((dX)**2+(dY)**2+(dZ)**2)**0.5
 
-    num_segments = int(sep/0.2)
+    num_segments = math.ceil(sep/0.2)
 
     #Assume a straight line and cut it into points
 
+
     for positions in range(num_segments):
-        posePath[positions] = [current_pose[0] + dX * ((positions + 1)/num_segments), current_pose[1] + dY * ((positions + 1)/num_segments), current_pose[2] + dZ * ((positions + 1)/num_segments)]
+        coordinates= [current_pose[0] + dX * ((positions + 1)/num_segments), current_pose[1] + dY * ((positions + 1)/num_segments), current_pose[2] + dZ * ((positions + 1)/num_segments)]
+        posePath.append(coordinates)
 
     #Use next_move function to calculate the best move given human joints
     for positions in enumerate(posePath):
-        path[positions] = next_move(joints_list, posePath[positions], ws_array)
+        idealMove = next_move(joints_list, posePath[positions[0]], ws_array)
+        path.append(idealMove)
 
     return path
               
@@ -634,7 +641,7 @@ rospy.Subscriber('/joint_coordinates', Float64MultiArray, joint_coordinates_call
 #Create a position saving variable
 position_data = []
 global ws_array
-ws_array = init_ws_array(20)
+ws_array = init_ws_array(10)
 print("check")
 
 #Is a global until FSM is set up
@@ -656,6 +663,24 @@ joint_coords = numpy.zeros(96) # initialize joint coords
 
 a = move_group.get_current_pose()
 b = GetRobotJointPositions()
+
+while 1:
+    # stall while no body detected
+    if joint_coords[0] != 0:
+        target = PoseMaker(target1[0], target1[1], target1[2])
+        MoveToPosition(target)
+        print("Finished moving to pose 1")
+        rospy.sleep(0.5)
+
+        # Second Movement
+        target = PoseMaker(target2[0], target2[1], target2[2])
+        MoveToPosition(target)
+        print("Finished moving to pose 2")
+        rospy.sleep(0.5)
+
+    elif 1:
+        rospy.sleep(1.0)
+        print("no body detected, stalling")
 
 while 1:
     # stall while no body detected
