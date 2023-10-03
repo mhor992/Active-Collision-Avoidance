@@ -79,7 +79,7 @@ top_wall.header.frame_id = robot.get_planning_frame()
 top_wall.pose.position.x = 0
 top_wall.pose.position.y = 0
 top_wall.pose.position.z = 1.0
-scene.add_box("top_wall", top_wall, (2, 2, 0.1))
+#scene.add_box("top_wall", top_wall, (2, 2, 0.1))
 
 global minimum_x_boundary, maximum_x_boundary, minimum_y_boundary, maximum_y_boundary, minimum_z_boundary, maximum_z_boundary
 minimum_x_boundary = -0.8
@@ -172,6 +172,7 @@ def boundary_exception():
         current_pos = current_position()
         
         while in_target is False:
+            joints_list = update_joints(joint_coords)
             AppendData()
             in_target = WithinTarget(bound_move)
             current_pos = current_position()
@@ -179,7 +180,7 @@ def boundary_exception():
             if abs(current_pos[0] - last_pos[0]) < 0.0001:
                 move_group.go(wait=False)
             last_pos = current_pos
-            rospy.sleep(0.5)
+            rospy.sleep(0.1)
 
     print("Exiting boundary exception")   
     
@@ -235,11 +236,12 @@ def escape():
             AppendData()
             in_target = WithinTarget(retreat)
             current_pos = current_position()
+            joints_list = update_joints(joint_coords)
             
             if abs(current_pos[0] - last_pos[0]) < 0.0001:
                 move_group.go(wait=False)
             last_pos = current_pos
-            rospy.sleep(0.5)
+            rospy.sleep(0.1)
 
     print("Exiting escape")
 
