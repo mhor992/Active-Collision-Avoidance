@@ -51,21 +51,21 @@ back_wall.header.frame_id = robot.get_planning_frame()
 back_wall.pose.position.x = 0.5
 back_wall.pose.position.y = 0.1
 back_wall.pose.position.z = 0.5
-scene.add_box("back_wall", back_wall, (0.3, 2, 1))
+#scene.add_box("back_wall", back_wall, (0.3, 2, 1))
 
 left_wall = geometry_msgs.msg.PoseStamped()
 left_wall.header.frame_id = robot.get_planning_frame()
 left_wall.pose.position.x = 0
 left_wall.pose.position.y = 0.75
 left_wall.pose.position.z = 0.5
-scene.add_box("left_wall", left_wall, (1.7, 0.1, 1))
+#scene.add_box("left_wall", left_wall, (1.7, 0.1, 1))
 
 right_wall = geometry_msgs.msg.PoseStamped()
 right_wall.header.frame_id = robot.get_planning_frame()
 right_wall.pose.position.x = 0
 right_wall.pose.position.y = -0.75
 right_wall.pose.position.z = 0.5
-scene.add_box("right_wall", right_wall, (1.7, 0.1, 1))
+#scene.add_box("right_wall", right_wall, (1.7, 0.1, 1))
 
 bottom_wall = geometry_msgs.msg.PoseStamped()
 bottom_wall.header.frame_id = robot.get_planning_frame()
@@ -78,7 +78,7 @@ top_wall = geometry_msgs.msg.PoseStamped()
 top_wall.header.frame_id = robot.get_planning_frame()
 top_wall.pose.position.x = 0
 top_wall.pose.position.y = 0
-top_wall.pose.position.z = 1.1
+top_wall.pose.position.z = 1.0
 scene.add_box("top_wall", top_wall, (2, 2, 0.1))
 
 global minimum_x_boundary, maximum_x_boundary, minimum_y_boundary, maximum_y_boundary, minimum_z_boundary, maximum_z_boundary
@@ -222,7 +222,7 @@ def escape():
         f = 1.5 # wil go x (0.3) from closest joint
         v = numpy.subtract(current_pose, min_joint) # numpy.subtract
         v_scaled = [f * v[0], f * v[1], f * v[2]]
-        sat_p = saturate_bounds(min_joint[0] + v_scaled[0], min_joint[1] + v_scaled[1], min_joint[2] + v_scaled[2])
+        sat_p = saturate_bounds(min_joint[0] + v_scaled[0] + 0.2, min_joint[1] + v_scaled[1], min_joint[2] + v_scaled[2])
         retreat = PoseMaker(sat_p[0], sat_p[1], sat_p[2])
         print("Retreating to", retreat)
         move_group.set_pose_target(retreat)
@@ -562,7 +562,7 @@ def update_joints(joint_coords):
     joints = [SHOULDER_LEFT, ELBOW_LEFT, HAND_LEFT, SHOULDER_RIGHT, ELBOW_RIGHT,HAND_RIGHT,HEAD]
 
     #cube dimensions
-    d = 0.25
+    d = 0.3
 
     SHOULDER_LEFT_p = geometry_msgs.msg.PoseStamped()
     SHOULDER_LEFT_p.header.frame_id = robot.get_planning_frame()
@@ -611,7 +611,7 @@ def update_joints(joint_coords):
     HEAD_p.pose.position.x = joints[6][0]
     HEAD_p.pose.position.y = joints[6][1]
     HEAD_p.pose.position.z = joints[6][2]
-    scene.add_box("HEAD", HEAD_p, (d, d, d))
+    scene.add_box("HEAD", HEAD_p, (d+0.1, d+0.1, d+0.1))
         
     return joints
 
