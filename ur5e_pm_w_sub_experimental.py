@@ -330,11 +330,11 @@ def planPath(finalPose):
 
     posePath = []
     path = []
-    current_position = current_position()
+    current_pose = current_position()
     
-    dX = finalPose[0]-current_position[0]
-    dY = finalPose[1]-current_position[1]
-    dZ = finalPose[2]-current_position[2]
+    dX = finalPose.position.x-current_pose[0]
+    dY = finalPose.position.y-current_pose[1]
+    dZ = finalPose.position.z-current_pose[2]
     sep = ((dX)**2+(dY)**2+(dZ)**2)**0.5
 
     num_segments = int(sep/0.2)
@@ -342,7 +342,7 @@ def planPath(finalPose):
     #Assume a straight line and cut it into points
 
     for positions in range(num_segments):
-        posePath[positions] = [current_position[0] + dX * ((positions + 1)/num_segments), current_position[1] + dY * ((positions + 1)/num_segments), current_position[2] + dZ * ((positions + 1)/num_segments)]
+        posePath[positions] = [current_pose[0] + dX * ((positions + 1)/num_segments), current_pose[1] + dY * ((positions + 1)/num_segments), current_pose[2] + dZ * ((positions + 1)/num_segments)]
 
     #Use next_move function to calculate the best move given human joints
     for positions in enumerate(posePath):

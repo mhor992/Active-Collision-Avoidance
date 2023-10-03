@@ -87,7 +87,7 @@ maximum_x_boundary = -0.11
 minimum_y_boundary = -0.5
 maximum_y_boundary = 0.490
 minimum_z_boundary = 0.14
-maximum_z_boundary = 0.7
+maximum_z_boundary = 0.9
 
 
 rospy.sleep(1)
@@ -130,13 +130,17 @@ def WithinTarget(target_pose):
         return False
 ############################################### DATA STORAGE FUNCTIONS ######################################################
 def AppendData():
-    current_pose = current_position
-    position_data.append(current_pose)
+    current_pose_x = move_group.get_current_pose().pose.position.x
+    current_pose_y = move_group.get_current_pose().pose.position.y
+    current_pose_z = move_group.get_current_pose().pose.position.z
+    position_data.append([current_pose_x, current_pose_y, current_pose_z])
 ############################################### MOVEMENT FUNCTIONS ######################################################
 def boundary_exception():
     print("boundary exception triggered")
     cp = current_position()
     bound_move = cp
+    in_target = False
+    last_pos = [0,0,0]
 
     if cp[0] <= minimum_x_boundary:
         bound_move = PoseMaker(minimum_x_boundary + 0.05, cp[1], cp[2])
@@ -151,14 +155,33 @@ def boundary_exception():
     elif cp[2] >= maximum_z_boundary:
         bound_move = PoseMaker(cp[0], cp[1], maximum_z_boundary - 0.05)
 
-    move_group.set_pose_target(bound_move)    
+    move_group.set_pose_target(bound_move)
+    plan = move_group.plan()
     
     while plan is False:
         print("planning boundary move")        
         joints_list = update_joints(joint_coords)    
         plan = move_group.plan()
     print("moving to:", bound_move)
-    move_group.go(wait=True)   
+    move_group.go(wait=False)
+
+    while in_target is False: 
+        AppendData()
+        in_target = WithinTarget(bound_move)
+        move_group.go(wait=False)
+        current_pos = current_position()
+        
+        while in_target is False:
+            AppendData()
+            in_target = WithinTarget(bound_move)
+            current_pos = current_position()
+            
+            if abs(current_pos[0] - last_pos[0]) < 0.0001:
+                move_group.go(wait=False)
+            last_pos = current_pos
+            rospy.sleep(0.5)
+
+    print("Exiting boundary exception")   
     
 def saturate_bounds(x, y, z):
     if x <= minimum_x_boundary:
@@ -182,9 +205,10 @@ def escape():
     current_pose = current_position()
     joints_list = update_joints(joint_coords)
     print("in escape")
-    #rospy.sleep(1.0)
     min_sep = 1000
     plan = False
+    in_target = False
+    last_pos = [0,0,0]
             
     for joint in joints_list:
         sep = separation(current_pose, joint)
@@ -205,8 +229,19 @@ def escape():
         while plan is False:        
             joints_list = update_joints(joint_coords)    
             plan = move_group.plan()
-        move_group.go(wait=True)
-        #rospy.sleep(1.0)
+        move_group.go(wait=False)
+        
+        while in_target is False:
+            AppendData()
+            in_target = WithinTarget(retreat)
+            current_pos = current_position()
+            
+            if abs(current_pos[0] - last_pos[0]) < 0.0001:
+                move_group.go(wait=False)
+            last_pos = current_pos
+            rospy.sleep(0.5)
+
+    print("Exiting escape")
 
 def current_position():
     current_pose_x = move_group.get_current_pose().pose.position.x
@@ -230,6 +265,7 @@ def MoveToPosition(target_pose):
   
         joints_list = update_joints(joint_coords)
         plan = False
+        last_pos = [0,0,0]
         target_xyz = [target_pose.position.x, target_pose.position.y, target_pose.position.z]
         next_position = next_move(joints_list, target_xyz, ws_array)
         next_pose = PoseMaker(next_position[0], next_position[1], next_position[2])
@@ -248,12 +284,19 @@ def MoveToPosition(target_pose):
 
         while(in_bound is True and in_target is False and in_emergency is False):
             # Check position
-            # rospy.sleep(0.1)
             in_bound = WithinBoundary()
             in_target = WithinTarget(next_pose)
             in_emergency = CheckEmergencyStop()
             in_emergency_non_tcp = CheckNonTcp()
-            #AppendData()
+            AppendData()
+
+            current_pos = current_position()
+            
+            if abs(current_pos[0] - last_pos[0]) < 0.0001:
+                move_group.go(wait=False)
+
+            last_pos = current_position()
+            rospy.sleep(0.1)
             # Stop the robot and clear pose targets
         
         move_group.stop() # something has happened, stop the robot
@@ -266,8 +309,8 @@ def MoveToPosition(target_pose):
             # rospy.sleep(0.1)
 
         if in_emergency is True:
-            escape()
             print("escaping")
+            escape()            
             in_emergency = False
 
         elif in_bound is False:
@@ -518,54 +561,57 @@ def update_joints(joint_coords):
 
     joints = [SHOULDER_LEFT, ELBOW_LEFT, HAND_LEFT, SHOULDER_RIGHT, ELBOW_RIGHT,HAND_RIGHT,HEAD]
 
+    #cube dimensions
+    d = 0.25
+
     SHOULDER_LEFT_p = geometry_msgs.msg.PoseStamped()
     SHOULDER_LEFT_p.header.frame_id = robot.get_planning_frame()
     SHOULDER_LEFT_p.pose.position.x = joints[0][0]
     SHOULDER_LEFT_p.pose.position.y = joints[0][1]
     SHOULDER_LEFT_p.pose.position.z = joints[0][2]
-    scene.add_box("SHOULDER_LEFT", SHOULDER_LEFT_p, (0.2, 0.2, 0.2))
+    scene.add_box("SHOULDER_LEFT", SHOULDER_LEFT_p, (d, d, d))
     
     ELBOW_LEFT_p = geometry_msgs.msg.PoseStamped()
     ELBOW_LEFT_p.header.frame_id = robot.get_planning_frame()
     ELBOW_LEFT_p.pose.position.x = joints[1][0]
     ELBOW_LEFT_p.pose.position.y = joints[1][1]
     ELBOW_LEFT_p.pose.position.z = joints[1][2]
-    scene.add_box("ELBOW_LEFT", ELBOW_LEFT_p, (0.2, 0.2, 0.2))
+    scene.add_box("ELBOW_LEFT", ELBOW_LEFT_p, (d, d, d))
     
     HAND_LEFT_p = geometry_msgs.msg.PoseStamped()
     HAND_LEFT_p.header.frame_id = robot.get_planning_frame()
     HAND_LEFT_p.pose.position.x = joints[2][0]
     HAND_LEFT_p.pose.position.y = joints[2][1]
     HAND_LEFT_p.pose.position.z = joints[2][2]
-    scene.add_box("HAND_LEFT", HAND_LEFT_p, (0.2, 0.2, 0.2))
+    scene.add_box("HAND_LEFT", HAND_LEFT_p, (d, d, d))
     
     SHOULDER_RIGHT_p = geometry_msgs.msg.PoseStamped()
     SHOULDER_RIGHT_p.header.frame_id = robot.get_planning_frame()
     SHOULDER_RIGHT_p.pose.position.x = joints[3][0]
     SHOULDER_RIGHT_p.pose.position.y = joints[3][1]
     SHOULDER_RIGHT_p.pose.position.z = joints[3][2]
-    scene.add_box("SHOULDER_RIGHT", SHOULDER_RIGHT_p, (0.2, 0.2, 0.2))
+    scene.add_box("SHOULDER_RIGHT", SHOULDER_RIGHT_p, (d, d, d))
     
     ELBOW_RIGHT_p = geometry_msgs.msg.PoseStamped()
     ELBOW_RIGHT_p.header.frame_id = robot.get_planning_frame()
     ELBOW_RIGHT_p.pose.position.x = joints[4][0]
     ELBOW_RIGHT_p.pose.position.y = joints[4][1]
     ELBOW_RIGHT_p.pose.position.z = joints[4][2]
-    scene.add_box("ELBOW_RIGHT", ELBOW_RIGHT_p, (0.2, 0.2, 0.2))
+    scene.add_box("ELBOW_RIGHT", ELBOW_RIGHT_p, (d, d, d))
     
     HAND_RIGHT_p = geometry_msgs.msg.PoseStamped()
     HAND_RIGHT_p.header.frame_id = robot.get_planning_frame()
     HAND_RIGHT_p.pose.position.x = joints[5][0]
     HAND_RIGHT_p.pose.position.y = joints[5][1]
     HAND_RIGHT_p.pose.position.z = joints[5][2]
-    scene.add_box("HAND_RIGHT", HAND_RIGHT_p, (0.2, 0.2, 0.2))
+    scene.add_box("HAND_RIGHT", HAND_RIGHT_p, (d, d, d))
     
     HEAD_p = geometry_msgs.msg.PoseStamped()
     HEAD_p.header.frame_id = robot.get_planning_frame()
     HEAD_p.pose.position.x = joints[6][0]
     HEAD_p.pose.position.y = joints[6][1]
     HEAD_p.pose.position.z = joints[6][2]
-    scene.add_box("HEAD", HEAD_p, (0.2, 0.2, 0.2))
+    scene.add_box("HEAD", HEAD_p, (d, d, d))
         
     return joints
 
@@ -586,6 +632,8 @@ goal = geometry_msgs.msg.Pose()
 target1 = [-0.56, 0.4, 0.3]
 target2 = [-0.56, -0.4, 0.3]
 
+completed = False
+
 ''' FOR POSITION CHECKING / CALIBRATION
 while 1:
     cp = current_position()
@@ -600,8 +648,9 @@ joint_coords = numpy.zeros(96) # initialize joint coords
 a = move_group.get_current_pose()
 b = GetRobotJointPositions()
 
-while 1:
-    # stall while no body detected
+print("START")
+# stall while no body detected
+while completed == False:
     if joint_coords[0] != 0:
         # First Movement
         joints_list = update_joints(joint_coords) # JOINTS PUBLISHER MUST BE RUNNING
@@ -623,12 +672,25 @@ while 1:
         print("Finished moving to pose")
         rospy.sleep(0.5)
 
-    elif 1:
-        rospy.sleep(1.0)
-        print("no body detected, stalling")
+        completed = True
+
+        # After your loop, save the position data to a CSV file
+    print("no body detected, stalling")
+    rospy.sleep(1.0)
+        
+
+with open('tcp_position.csv', 'a', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        
+        # Write a header row with column names
+        csv_writer.writerow(['X', 'Y', 'Z'])
+        
+        # Write the position data
+        csv_writer.writerows(position_data)
 
     
 # Setting up joints
+'''
 while 1:
     try:
         print("entered loop")
@@ -653,6 +715,8 @@ while 1:
     except:
         pass
 
+'''
+
 
     
 
@@ -662,76 +726,76 @@ while 1:
 
 #Notes
 #z 0.45 limit
-goal.position.x = -0.56
-goal.position.y = 0.2
-goal.position.z = 0.21
-goal.orientation.x = move_group.get_current_pose().pose.orientation.x
-goal.orientation.y = move_group.get_current_pose().pose.orientation.y
-goal.orientation.z = move_group.get_current_pose().pose.orientation.z
-goal.orientation.w = move_group.get_current_pose().pose.orientation.w
+# goal.position.x = -0.56
+# goal.position.y = 0.2
+# goal.position.z = 0.21
+# goal.orientation.x = move_group.get_current_pose().pose.orientation.x
+# goal.orientation.y = move_group.get_current_pose().pose.orientation.y
+# goal.orientation.z = move_group.get_current_pose().pose.orientation.z
+# goal.orientation.w = move_group.get_current_pose().pose.orientation.w
 
-# Define the first target pose
-pose_1 = geometry_msgs.msg.Pose()
-pose_1.position.x = -0.3
-pose_1.position.y = 0.20
-pose_1.position.z = 0.21
-pose_1.orientation.x = move_group.get_current_pose().pose.orientation.x
-pose_1.orientation.y = move_group.get_current_pose().pose.orientation.y
-pose_1.orientation.z = move_group.get_current_pose().pose.orientation.z
-pose_1.orientation.w = move_group.get_current_pose().pose.orientation.w
+# # Define the first target pose
+# pose_1 = geometry_msgs.msg.Pose()
+# pose_1.position.x = -0.3
+# pose_1.position.y = 0.20
+# pose_1.position.z = 0.21
+# pose_1.orientation.x = move_group.get_current_pose().pose.orientation.x
+# pose_1.orientation.y = move_group.get_current_pose().pose.orientation.y
+# pose_1.orientation.z = move_group.get_current_pose().pose.orientation.z
+# pose_1.orientation.w = move_group.get_current_pose().pose.orientation.w
 
-# Define the second target pose
-pose_2 = geometry_msgs.msg.Pose()
-pose_2.position.x = -0.56
-pose_2.position.y = -0.20
-pose_2.position.z = 0.21
-pose_2.orientation.x = move_group.get_current_pose().pose.orientation.x
-pose_2.orientation.y = move_group.get_current_pose().pose.orientation.y
-pose_2.orientation.z = move_group.get_current_pose().pose.orientation.z
-pose_2.orientation.w = move_group.get_current_pose().pose.orientation.w
+# # Define the second target pose
+# pose_2 = geometry_msgs.msg.Pose()
+# pose_2.position.x = -0.56
+# pose_2.position.y = -0.20
+# pose_2.position.z = 0.21
+# pose_2.orientation.x = move_group.get_current_pose().pose.orientation.x
+# pose_2.orientation.y = move_group.get_current_pose().pose.orientation.y
+# pose_2.orientation.z = move_group.get_current_pose().pose.orientation.z
+# pose_2.orientation.w = move_group.get_current_pose().pose.orientation.w
 
-# Define the third target pose
-pose_3 = geometry_msgs.msg.Pose()
-pose_3.position.x = -0.56
-pose_3.position.y = -0.40
-pose_3.position.z = 0.21
-pose_3.orientation.x = move_group.get_current_pose().pose.orientation.x
-pose_3.orientation.y = move_group.get_current_pose().pose.orientation.y
-pose_3.orientation.z = move_group.get_current_pose().pose.orientation.z
-pose_3.orientation.w = move_group.get_current_pose().pose.orientation.w
+# # Define the third target pose
+# pose_3 = geometry_msgs.msg.Pose()
+# pose_3.position.x = -0.56
+# pose_3.position.y = -0.40
+# pose_3.position.z = 0.21
+# pose_3.orientation.x = move_group.get_current_pose().pose.orientation.x
+# pose_3.orientation.y = move_group.get_current_pose().pose.orientation.y
+# pose_3.orientation.z = move_group.get_current_pose().pose.orientation.z
+# pose_3.orientation.w = move_group.get_current_pose().pose.orientation.w
 
-# Define the fourth target pose
-pose_4 = geometry_msgs.msg.Pose()
-pose_4.position.x = -0.56
-pose_4.position.y = -0.40
-pose_4.position.z = 0.40
-pose_4.orientation.x = move_group.get_current_pose().pose.orientation.x
-pose_4.orientation.y = move_group.get_current_pose().pose.orientation.y
-pose_4.orientation.z = move_group.get_current_pose().pose.orientation.z
-pose_4.orientation.w = move_group.get_current_pose().pose.orientation.w
+# # Define the fourth target pose
+# pose_4 = geometry_msgs.msg.Pose()
+# pose_4.position.x = -0.56
+# pose_4.position.y = -0.40
+# pose_4.position.z = 0.40
+# pose_4.orientation.x = move_group.get_current_pose().pose.orientation.x
+# pose_4.orientation.y = move_group.get_current_pose().pose.orientation.y
+# pose_4.orientation.z = move_group.get_current_pose().pose.orientation.z
+# pose_4.orientation.w = move_group.get_current_pose().pose.orientation.w
 
-MoveToPosition(pose_1)
-print("Finished moving to the first pose")
-rospy.sleep(0.5)
+# MoveToPosition(pose_1)
+# print("Finished moving to the first pose")
+# rospy.sleep(0.5)
 
-MoveToPosition(pose_2)
-print("Finished moving to the second pose")
-rospy.sleep(0.5)
+# MoveToPosition(pose_2)
+# print("Finished moving to the second pose")
+# rospy.sleep(0.5)
 
-MoveToPosition(pose_3)
-print("Finished moving to the third pose")
-rospy.sleep(0.5)
+# MoveToPosition(pose_3)
+# print("Finished moving to the third pose")
+# rospy.sleep(0.5)
 
-MoveToPosition(pose_4)
-print("Finished moving to the fourth pose")
+# MoveToPosition(pose_4)
+# print("Finished moving to the fourth pose")
 
-# After your loop, save the position data to a CSV file
-with open('position_physical.csv', 'a', newline='') as csvfile:
-    csv_writer = csv.writer(csvfile)
+# # After your loop, save the position data to a CSV file
+# with open('position_physical.csv', 'a', newline='') as csvfile:
+#     csv_writer = csv.writer(csvfile)
     
-    # Write a header row with column names
-    csv_writer.writerow(['X', 'Y', 'Z'])
+#     # Write a header row with column names
+#     csv_writer.writerow(['X', 'Y', 'Z'])
     
-    # Write the position data
-    csv_writer.writerows(position_data)
+#     # Write the position data
+#     csv_writer.writerows(position_data)
 
