@@ -19,7 +19,7 @@ data9 = readtable('DYNAMIC_ARM_3_edited.csv','NumHeaderLines',1);
 data10 = readtable('DYNAMIC_ARM_4_edited.csv','NumHeaderLines',1); %Best Dynamic
 data11 = readtable('STATIC_ARM_2_edited.csv','NumHeaderLines',1);
 data12 = readtable('STATIC_ARM_3_edited.csv','NumHeaderLines',1);
-data13 = readtable('tcp_position.csv','NumHeaderLines',1);
+%data13 = readtable('tcp_position.csv','NumHeaderLines',1);
 
 %Convert from table form to array
 data1 = data1{:,:};
@@ -35,10 +35,10 @@ data9 = data9{:,:};
 data10 = data10{:,:};
 data11 = data11{:,:};
 data12 = data12{:,:};
-data13 = data13{:,:};
+%data13 = data13{:,:};
 
 set(0,'defaultlinelinewidth',2)
-
+set(gcf,'color','w');
 %Figure 1 - No obstacle, Static obstacle, Dynamic obstacle
 figure(1)
 plot = plot3(data1(:, 1), data1(:, 2), data1(:, 3), '-');
@@ -49,25 +49,29 @@ plot = plot3(data10(:, 1), data10(:, 2), data10(:, 3), '-');
 plot = plot3(-0.5598303039694383, 0.39383877607784695, 0.3058042748844018, 'o', 'MarkerEdgeColor', 'green', 'MarkerFaceColor', 'green');
 plot = plot3(-0.5508813788615594, -0.38492317400168745, 0.3042743954884903,  'o', 'MarkerEdgeColor', 'red', 'MarkerFaceColor', 'red');
 %Static obstacle
-plot = plot3(-0.6, 0.2, 0.43, 'o', 'MarkerEdgeColor', 'red', 'MarkerSize', 30);
+%plot = plot3(-0.6, 0.2, 0.43, 'o', 'MarkerEdgeColor', 'red', 'MarkerSize', 30);
+plot = plot3(-0.65, 0.2, 0.43, '*', 'MarkerEdgeColor', 'blue', 'MarkerSize', 30);
 %Dynamically inserted obstacles
 DynamicObstaclex = [-0.57,-0.55];
 DynamicObstacley = [0.1,-0.18];
 DynamicObstaclez = [0.4,0.4];
-plot = plot3(DynamicObstaclex, DynamicObstacley, DynamicObstaclez, 'o', 'MarkerEdgeColor', '#EDB120', 'MarkerSize', 30);
-title("Path of TCP for different collision object scenarios", 'FontSize', 30)
-xlabel("X axis (m)", 'FontSize', 15)
-ylabel("Y axis (m)", 'FontSize', 15)
-zlabel("Z axis (m)", 'FontSize', 15)
+% plot = plot3(DynamicObstaclex, DynamicObstacley, DynamicObstaclez, 'o', 'MarkerEdgeColor', '#EDB120', 'MarkerSize', 30);
+plot = plot3(DynamicObstaclex, DynamicObstacley, DynamicObstaclez, 'x', 'MarkerEdgeColor', 'blue', 'MarkerSize', 30);
+title("Path of TCP for different collision object scenarios", 'FontSize', 25)
+xlabel("X axis (m)",'fontweight','bold', 'FontSize', 15)
+ylabel("Y axis (m)",'fontweight','bold', 'FontSize', 15)
+zlabel("Z axis (m)",'fontweight','bold', 'FontSize', 15)
 
 %axis tight
 grid on
 axis([-1 0  -0.6 0.6 0.1 0.9])
-legend("No Obstacle Path", "Static Obstacle Path", "Inserted Dynamic Obstacle Path", "Starting Position", "Ending Position", "Static Obstacle Position", "Inserted Dynamic Obstacle Position", 'FontSize', 15)
+legend("No Obstacle Path", "Static Obstacle Path", "Inserted Dynamic Obstacle Path", "Starting Position", "Ending Position", "Static Obstacle Position", "Inserted Dynamic Obstacle Position", 'FontSize', 12)
 hold off
 
-%Figure 1 - No obstacle, Static obstacle, Dynamic obstacle
+%Figure 2 - No obstacle, Static obstacle, Dynamic obstacle
+
 figure(2)
+set(gcf,'color','w');
 plot = plot3(data10(:, 1), data10(:, 2), data10(:, 3), '-', 'Color', '#EDB120');
 hold on
 %Starting and ending positions
@@ -77,16 +81,17 @@ plot = plot3(-0.5508813788615594, -0.38492317400168745, 0.3042743954884903,  'o'
 DynamicObstaclex = [-0.57,-0.55];
 DynamicObstacley = [0.1,-0.18];
 DynamicObstaclez = [0.4,0.4];
-plot = plot3(DynamicObstaclex, DynamicObstacley, DynamicObstaclez, 'o', 'MarkerEdgeColor', '#EDB120', 'MarkerSize', 30);
-title("Path of TCP for different collision object scenarios", 'FontSize', 30)
-xlabel("X axis (m)", 'FontSize', 15)
-ylabel("Y axis (m)", 'FontSize', 15)
-zlabel("Z axis (m)", 'FontSize', 15)
+% plot = plot3(DynamicObstaclex, DynamicObstacley, DynamicObstaclez, 'o', 'MarkerEdgeColor', '#EDB120', 'MarkerSize', 30);
+plot = plot3(DynamicObstaclex, DynamicObstacley, DynamicObstaclez, 'x', 'MarkerEdgeColor', 'blue', 'MarkerSize', 30);
+title("Path of TCP for different collision object scenarios", 'FontSize', 25)
+xlabel("X axis (m)",'fontweight','bold', 'FontSize', 15)
+ylabel("Y axis (m)",'fontweight','bold', 'FontSize', 15)
+zlabel("Z axis (m)",'fontweight','bold', 'FontSize', 15)
 
 %axis tight
 grid on
 axis([-1 0  -0.6 0.6 0.1 0.9])
-legend("Inserted Dynamic Obstacle Path", "Starting Position", "Ending Position", "Inserted Dynamic Obstacle Position", 'FontSize', 15)
+legend("Inserted Dynamic Obstacle Path", "Starting Position", "Ending Position", "Inserted Dynamic Obstacle Position", 'FontSize', 12)
 hold off
 % %Figure 2
 % figure(2)
