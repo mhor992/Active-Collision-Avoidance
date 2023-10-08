@@ -31,7 +31,7 @@ move_group.set_planner_id("RRTConnectkConfigDefault")
 
 # set tolerance & velocity factor
 move_group.set_goal_position_tolerance(0.01)
-move_group.set_max_velocity_scaling_factor(0.08)
+move_group.set_max_velocity_scaling_factor(0.3)
 #move_group.set_planning_time(25.0)
 
 rospy.loginfo("Start")
@@ -305,9 +305,9 @@ def MoveToPosition(finalPose):
                 in_emergency = CheckEmergencyStop()
 
                 #Could add in Check collision for path
-                if CheckPathCollision(target_poses) is True:
+                #if CheckPathCollision(target_poses) is True:
                     #Replan the path
-                    target_poses = planPath(finalPose)
+                #    target_poses = planPath(finalPose)
                 #Or else continue through the loop
         
         #Occurs when conditions are not met, stop the robot
@@ -587,49 +587,49 @@ def update_joints(joint_coords):
     SHOULDER_LEFT_p.pose.position.x = joints[0][0]
     SHOULDER_LEFT_p.pose.position.y = joints[0][1]
     SHOULDER_LEFT_p.pose.position.z = joints[0][2]
-    scene.add_box("SHOULDER_LEFT", SHOULDER_LEFT_p, (0.2, 0.2, 0.2))
+    scene.add_sphere("SHOULDER_LEFT", SHOULDER_LEFT_p, 0.2)
     
     ELBOW_LEFT_p = geometry_msgs.msg.PoseStamped()
     ELBOW_LEFT_p.header.frame_id = robot.get_planning_frame()
     ELBOW_LEFT_p.pose.position.x = joints[1][0]
     ELBOW_LEFT_p.pose.position.y = joints[1][1]
     ELBOW_LEFT_p.pose.position.z = joints[1][2]
-    scene.add_box("ELBOW_LEFT", ELBOW_LEFT_p, (0.2, 0.2, 0.2))
+    scene.add_sphere("ELBOW_LEFT", ELBOW_LEFT_p, 0.2)
     
     HAND_LEFT_p = geometry_msgs.msg.PoseStamped()
     HAND_LEFT_p.header.frame_id = robot.get_planning_frame()
     HAND_LEFT_p.pose.position.x = joints[2][0]
     HAND_LEFT_p.pose.position.y = joints[2][1]
     HAND_LEFT_p.pose.position.z = joints[2][2]
-    scene.add_box("HAND_LEFT", HAND_LEFT_p, (0.2, 0.2, 0.2))
+    scene.add_sphere("HAND_LEFT", HAND_LEFT_p, 0.2)
     
     SHOULDER_RIGHT_p = geometry_msgs.msg.PoseStamped()
     SHOULDER_RIGHT_p.header.frame_id = robot.get_planning_frame()
     SHOULDER_RIGHT_p.pose.position.x = joints[3][0]
     SHOULDER_RIGHT_p.pose.position.y = joints[3][1]
     SHOULDER_RIGHT_p.pose.position.z = joints[3][2]
-    scene.add_box("SHOULDER_RIGHT", SHOULDER_RIGHT_p, (0.2, 0.2, 0.2))
+    scene.add_sphere("SHOULDER_RIGHT", SHOULDER_RIGHT_p, 0.2)
     
     ELBOW_RIGHT_p = geometry_msgs.msg.PoseStamped()
     ELBOW_RIGHT_p.header.frame_id = robot.get_planning_frame()
     ELBOW_RIGHT_p.pose.position.x = joints[4][0]
     ELBOW_RIGHT_p.pose.position.y = joints[4][1]
     ELBOW_RIGHT_p.pose.position.z = joints[4][2]
-    scene.add_box("ELBOW_RIGHT", ELBOW_RIGHT_p, (0.2, 0.2, 0.2))
+    scene.add_sphere("ELBOW_RIGHT", ELBOW_RIGHT_p, 0.2)
     
     HAND_RIGHT_p = geometry_msgs.msg.PoseStamped()
     HAND_RIGHT_p.header.frame_id = robot.get_planning_frame()
     HAND_RIGHT_p.pose.position.x = joints[5][0]
     HAND_RIGHT_p.pose.position.y = joints[5][1]
     HAND_RIGHT_p.pose.position.z = joints[5][2]
-    scene.add_box("HAND_RIGHT", HAND_RIGHT_p, (0.2, 0.2, 0.2))
+    scene.add_sphere("HAND_RIGHT", HAND_RIGHT_p, 0.2)
     
     HEAD_p = geometry_msgs.msg.PoseStamped()
     HEAD_p.header.frame_id = robot.get_planning_frame()
     HEAD_p.pose.position.x = joints[6][0]
     HEAD_p.pose.position.y = joints[6][1]
     HEAD_p.pose.position.z = joints[6][2]
-    scene.add_box("HEAD", HEAD_p, (0.2, 0.2, 0.2))
+    scene.add_sphere("HEAD", HEAD_p, 0.2)
         
     return joints
 

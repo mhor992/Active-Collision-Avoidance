@@ -31,7 +31,7 @@ move_group.set_planner_id("RRTConnectkConfigDefault")
 
 # set tolerance & velocity factor
 move_group.set_goal_position_tolerance(0.01)
-move_group.set_max_velocity_scaling_factor(0.08)
+move_group.set_max_velocity_scaling_factor(0.1)
 #move_group.set_planning_time(25.0)
 
 rospy.loginfo("Start")
@@ -48,7 +48,7 @@ rospy.sleep(1)
 #Add the collision zones
 back_wall = geometry_msgs.msg.PoseStamped()
 back_wall.header.frame_id = robot.get_planning_frame()
-back_wall.pose.position.x = 0.5
+back_wall.pose.position.x = 0.7
 back_wall.pose.position.y = 0.1
 back_wall.pose.position.z = 0.5
 #scene.add_box("back_wall", back_wall, (0.3, 2, 1))
@@ -78,7 +78,7 @@ top_wall = geometry_msgs.msg.PoseStamped()
 top_wall.header.frame_id = robot.get_planning_frame()
 top_wall.pose.position.x = 0
 top_wall.pose.position.y = 0
-top_wall.pose.position.z = 1.0
+top_wall.pose.position.z = 0.9
 #scene.add_box("top_wall", top_wall, (2, 2, 0.1))
 
 global minimum_x_boundary, maximum_x_boundary, minimum_y_boundary, maximum_y_boundary, minimum_z_boundary, maximum_z_boundary
@@ -88,6 +88,10 @@ minimum_y_boundary = -0.5
 maximum_y_boundary = 0.490
 minimum_z_boundary = 0.14
 maximum_z_boundary = 0.9
+
+# Will show zones in rviz for when planning is not running
+global vis_separation
+vis_separation = 0.3
 
 
 rospy.sleep(1)
@@ -160,7 +164,7 @@ def boundary_exception():
     
     while plan is False:
         print("planning boundary move")        
-        joints_list = update_joints(joint_coords)    
+        joints_list = update_joints(joint_coords, vis_separation)    
         plan = move_group.plan()
     print("moving to:", bound_move)
     move_group.go(wait=False)
@@ -172,7 +176,7 @@ def boundary_exception():
         current_pos = current_position()
         
         while in_target is False:
-            joints_list = update_joints(joint_coords)
+            joints_list = update_joints(joint_coords, vis_separation)
             AppendData()
             in_target = WithinTarget(bound_move)
             current_pos = current_position()
@@ -186,25 +190,25 @@ def boundary_exception():
     
 def saturate_bounds(x, y, z):
     if x <= minimum_x_boundary:
-        x = minimum_x_boundary + 0.05
+        x = minimum_x_boundary + 0.1
     elif x >= maximum_x_boundary:
-        x = maximum_x_boundary - 0.05
+        x = maximum_x_boundary - 0.1
     
     if y <= minimum_y_boundary:
-        y = minimum_y_boundary + 0.05
+        y = minimum_y_boundary + 0.1
     elif y >= maximum_y_boundary:
-        y = maximum_y_boundary - 0.05
+        y = maximum_y_boundary - 0.1
     
     if z <= minimum_z_boundary:
-        z = minimum_z_boundary + 0.05
+        z = minimum_z_boundary + 0.1
     elif z >= maximum_z_boundary:
-        z = maximum_z_boundary - 0.05
+        z = maximum_z_boundary - 0.1
 
     return [x, y, z]
 
 def escape():
     current_pose = current_position()
-    joints_list = update_joints(joint_coords)
+    joints_list = update_joints(joint_coords, 0.1)
     print("in escape")
     min_sep = 1000
     plan = False
@@ -225,10 +229,16 @@ def escape():
         v_scaled = [f * v[0], f * v[1], f * v[2]]
         sat_p = saturate_bounds(min_joint[0] + v_scaled[0] + 0.2, min_joint[1] + v_scaled[1], min_joint[2] + v_scaled[2])
         retreat = PoseMaker(sat_p[0], sat_p[1], sat_p[2])
+
+        # Correcting orientation so tcp remains standard
+        retreat.orientation.x = -0.7055840819676955
+        retreat.orientation.y = -0.708634452751245
+        retreat.orientation.z = 0.00014032697939014228
+        retreat.orientation.w = 0.0005000702047506833
         print("Retreating to", retreat)
         move_group.set_pose_target(retreat)
         while plan is False:        
-            joints_list = update_joints(joint_coords)    
+            joints_list = update_joints(joint_coords, 0.1)    
             plan = move_group.plan()
         move_group.go(wait=False)
         
@@ -236,7 +246,7 @@ def escape():
             AppendData()
             in_target = WithinTarget(retreat)
             current_pos = current_position()
-            joints_list = update_joints(joint_coords)
+            joints_list = update_joints(joint_coords, 0.1)
             
             if abs(current_pos[0] - last_pos[0]) < 0.0001:
                 move_group.go(wait=False)
@@ -265,7 +275,7 @@ def MoveToPosition(target_pose):
 
     while in_target is False:
   
-        joints_list = update_joints(joint_coords)
+        joints_list = update_joints(joint_coords, 0.3)
         plan = False
         last_pos = [0,0,0]
         target_xyz = [target_pose.position.x, target_pose.position.y, target_pose.position.z]
@@ -276,11 +286,12 @@ def MoveToPosition(target_pose):
         in_bound = WithinBoundary()
         in_emergency = CheckEmergencyStop()
         in_emergency_non_tcp = CheckNonTcp()
+        joints_list = update_joints(joint_coords, 0.35)
         
         if (in_bound is True and in_target is False and in_emergency is False):
             while plan is False:
                 print("planning movement to:", next_pose)
-                joints_list = update_joints(joint_coords)
+                joints_list = update_joints(joint_coords, 0.35)
                 plan = move_group.plan()
             move_group.go(wait=False)
 
@@ -324,7 +335,7 @@ def CheckNonTcp():
     threshold = 0.1 # in m
     current_joints = GetRobotJointPositions()
 
-    joints_list = update_joints(joint_coords)
+    joints_list = update_joints(joint_coords, vis_separation)
     for r_joint in current_joints:
         for h_joint in joints_list:
             sep = separation(r_joint, h_joint)
@@ -354,13 +365,14 @@ def MoveToCartesian(x, y ,z):
     MoveToPosition(target_pose)
 
 def CheckEmergencyStop(): # Recent changes, add joint retrival funcitonal call and try /except in case body not detected (or there is none to detect)
-    threshold = 0.3 # CHANGE THIS TO BEGIN TESTING
+    threshold = 0.4
+    # CHANGE THIS TO BEGIN TESTING
     #Checks to see if any robot joints are close to collision with human joints
     #Currently only for robot end effector - Ideas => Manual calculation of inverse kinematics for calculating other joint positions
     current_pose = current_position()
 
     
-    joints_list = update_joints(joint_coords) # WILL ONLY WORK IF BODY IS DETECTED
+    joints_list = update_joints(joint_coords, vis_separation) # WILL ONLY WORK IF BODY IS DETECTED
     for joint in joints_list:
         sep = separation(current_pose, joint)
         if sep <= threshold:
@@ -552,7 +564,7 @@ def getJointPose(dh_params, theta):
     return f.t_3_1.reshape([3, ])
 
 
-def update_joints(joint_coords):
+def update_joints(joint_coords, radius):
     SHOULDER_LEFT = [joint_coords[15], joint_coords[16], joint_coords[17]]
     ELBOW_LEFT = [joint_coords[18], joint_coords[19], joint_coords[20]]
     HAND_LEFT = [joint_coords[24], joint_coords[25], joint_coords[26]]
@@ -563,59 +575,68 @@ def update_joints(joint_coords):
 
     joints = [SHOULDER_LEFT, ELBOW_LEFT, HAND_LEFT, SHOULDER_RIGHT, ELBOW_RIGHT,HAND_RIGHT,HEAD]
 
-    #cube dimensions
-    d = 0.3
-
     SHOULDER_LEFT_p = geometry_msgs.msg.PoseStamped()
     SHOULDER_LEFT_p.header.frame_id = robot.get_planning_frame()
     SHOULDER_LEFT_p.pose.position.x = joints[0][0]
     SHOULDER_LEFT_p.pose.position.y = joints[0][1]
     SHOULDER_LEFT_p.pose.position.z = joints[0][2]
-    scene.add_box("SHOULDER_LEFT", SHOULDER_LEFT_p, (d, d, d))
+    scene.add_sphere("SHOULDER_LEFT", SHOULDER_LEFT_p, radius -0.05)
     
     ELBOW_LEFT_p = geometry_msgs.msg.PoseStamped()
     ELBOW_LEFT_p.header.frame_id = robot.get_planning_frame()
     ELBOW_LEFT_p.pose.position.x = joints[1][0]
     ELBOW_LEFT_p.pose.position.y = joints[1][1]
     ELBOW_LEFT_p.pose.position.z = joints[1][2]
-    scene.add_box("ELBOW_LEFT", ELBOW_LEFT_p, (d, d, d))
+    scene.add_sphere("ELBOW_LEFT", ELBOW_LEFT_p, radius)
     
     HAND_LEFT_p = geometry_msgs.msg.PoseStamped()
     HAND_LEFT_p.header.frame_id = robot.get_planning_frame()
     HAND_LEFT_p.pose.position.x = joints[2][0]
     HAND_LEFT_p.pose.position.y = joints[2][1]
     HAND_LEFT_p.pose.position.z = joints[2][2]
-    scene.add_box("HAND_LEFT", HAND_LEFT_p, (d, d, d))
+    scene.add_sphere("HAND_LEFT", HAND_LEFT_p, radius)
     
     SHOULDER_RIGHT_p = geometry_msgs.msg.PoseStamped()
     SHOULDER_RIGHT_p.header.frame_id = robot.get_planning_frame()
     SHOULDER_RIGHT_p.pose.position.x = joints[3][0]
     SHOULDER_RIGHT_p.pose.position.y = joints[3][1]
     SHOULDER_RIGHT_p.pose.position.z = joints[3][2]
-    scene.add_box("SHOULDER_RIGHT", SHOULDER_RIGHT_p, (d, d, d))
+    scene.add_sphere("SHOULDER_RIGHT", SHOULDER_RIGHT_p, radius -0.05)
     
     ELBOW_RIGHT_p = geometry_msgs.msg.PoseStamped()
     ELBOW_RIGHT_p.header.frame_id = robot.get_planning_frame()
     ELBOW_RIGHT_p.pose.position.x = joints[4][0]
     ELBOW_RIGHT_p.pose.position.y = joints[4][1]
     ELBOW_RIGHT_p.pose.position.z = joints[4][2]
-    scene.add_box("ELBOW_RIGHT", ELBOW_RIGHT_p, (d, d, d))
+    scene.add_sphere("ELBOW_RIGHT", ELBOW_RIGHT_p, radius)
     
     HAND_RIGHT_p = geometry_msgs.msg.PoseStamped()
     HAND_RIGHT_p.header.frame_id = robot.get_planning_frame()
     HAND_RIGHT_p.pose.position.x = joints[5][0]
     HAND_RIGHT_p.pose.position.y = joints[5][1]
     HAND_RIGHT_p.pose.position.z = joints[5][2]
-    scene.add_box("HAND_RIGHT", HAND_RIGHT_p, (d, d, d))
+    scene.add_sphere("HAND_RIGHT", HAND_RIGHT_p, radius)
     
     HEAD_p = geometry_msgs.msg.PoseStamped()
     HEAD_p.header.frame_id = robot.get_planning_frame()
     HEAD_p.pose.position.x = joints[6][0]
     HEAD_p.pose.position.y = joints[6][1]
     HEAD_p.pose.position.z = joints[6][2]
-    scene.add_box("HEAD", HEAD_p, (d+0.1, d+0.1, d+0.1))
+    scene.add_sphere("HEAD", HEAD_p, radius+0.05)
         
     return joints
+
+def align_tcp():
+    # Ensure tcp is standard orientation
+    cp = current_position()
+    cp = PoseMaker(cp[0], cp[1], cp[2])
+    cp.orientation.x = -0.7055840819676955
+    cp.orientation.y = -0.708634452751245
+    cp.orientation.z = 0.00014032697939014228
+    cp.orientation.w = 0.0005000702047506833
+    move_group.set_pose_target(cp)
+    plan = move_group.plan()
+    move_group.go(wait=True)
 
 ###########################################################################################################################################
 
@@ -635,27 +656,17 @@ target1 = [-0.56, 0.4, 0.3]
 target2 = [-0.56, -0.4, 0.3]
 
 completed = False
-
-''' FOR POSITION CHECKING / CALIBRATION
-while 1:
-    cp = current_position()
-    print(cp[0], cp[1], cp[2])
-    rospy.sleep(1.0)
-'''
-
 global joint_coords
-
 joint_coords = numpy.zeros(96) # initialize joint coords
-
-a = move_group.get_current_pose()
 b = GetRobotJointPositions()
+align_tcp()
 
 print("START")
 # stall while no body detected
 while completed == False:
     if joint_coords[0] != 0:
         # First Movement
-        joints_list = update_joints(joint_coords) # JOINTS PUBLISHER MUST BE RUNNING
+        joints_list = update_joints(joint_coords, vis_separation) # JOINTS PUBLISHER MUST BE RUNNING
         print("Left hand is at:", joints_list[2]) # DEBUGGING / CHECKING
         next_pos = next_move(joints_list, target1, ws_array)
         print("Moving to:", next_pos)
@@ -665,7 +676,7 @@ while completed == False:
         rospy.sleep(0.5)
 
         # Second Movement
-        joints_list = update_joints(joint_coords) # JOINTS PUBLISHER MUST BE RUNNING
+        joints_list = update_joints(joint_coords, vis_separation) # JOINTS PUBLISHER MUST BE RUNNING
         print("Left hand is at:", joints_list[2]) # DEBUGGING / CHECKING
         next_pos = next_move(joints_list, target2, ws_array)
         print("Moving to:", next_pos)    
