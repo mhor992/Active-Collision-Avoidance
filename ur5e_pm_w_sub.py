@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-# This makes the ur5 move to a position 1, wait 2 seconds and then move to position 2.
+# This makes the ur5 move to a position 1, wait 2 seconds and then move to position 2, configured to allow for testing with static and dynamic obstacles
 # To execute this code ensure MoveIt!, Universal Robots, Ros, and this directory is sourced.
-# Ensure this code is executable by running chmod +x "NameOfCode.py"
-# 
+# Ensure this code is executable by running chmod +x "'this file name'.py"
+# start MoveIt:
 # roslaunch ur_gazebo ur5_bringup.launch
 # roslaunch ur5_moveit_config moveit_planning_execution.launch sim:=true
 # roslaunch ur5_moveit_config moveit_rviz.launch
-# ./ur5_movement.py
+# Authors: Jarrod Chan & Matthew Horning
 
 import rospy
 import numpy
@@ -20,52 +20,40 @@ from visual_kinematics.RobotSerial import *
 from moveit_commander import conversions
 from std_msgs.msg import Float64MultiArray
 
-
+# ROS initilization
 rospy.init_node('ur5e_physical_movement', anonymous=True)
 moveit_commander.roscpp_initialize(sys.argv)
 robot = moveit_commander.RobotCommander()
 scene = moveit_commander.PlanningSceneInterface()
 group_name = "manipulator"
 move_group = moveit_commander.MoveGroupCommander(group_name)
+
+# Specify Static obstacle planner
 move_group.set_planner_id("RRTConnectkConfigDefault")
 
-# set tolerance & velocity factor
+# Set tolerance & Velocity Scaling Factor
 move_group.set_goal_position_tolerance(0.01)
 move_group.set_max_velocity_scaling_factor(0.1)
 #move_group.set_planning_time(25.0)
 
+# Logging
 rospy.loginfo("Start")
 
-#Refresh the planning scene
+# If generated objects exist from previous trial, remove them
 scene.remove_world_object("back_wall")
 scene.remove_world_object("left_wall")
 scene.remove_world_object("right_wall")
 scene.remove_world_object("bottom_wall")
 scene.remove_world_object("top_wall")
-
 rospy.sleep(1)
 
-#Add the collision zones
+# Add collision boundarys for the workspace
 back_wall = geometry_msgs.msg.PoseStamped()
 back_wall.header.frame_id = robot.get_planning_frame()
 back_wall.pose.position.x = 0.7
 back_wall.pose.position.y = 0.1
 back_wall.pose.position.z = 0.5
-#scene.add_box("back_wall", back_wall, (0.3, 2, 1))
-
-left_wall = geometry_msgs.msg.PoseStamped()
-left_wall.header.frame_id = robot.get_planning_frame()
-left_wall.pose.position.x = 0
-left_wall.pose.position.y = 0.75
-left_wall.pose.position.z = 0.5
-#scene.add_box("left_wall", left_wall, (1.7, 0.1, 1))
-
-right_wall = geometry_msgs.msg.PoseStamped()
-right_wall.header.frame_id = robot.get_planning_frame()
-right_wall.pose.position.x = 0
-right_wall.pose.position.y = -0.75
-right_wall.pose.position.z = 0.5
-#scene.add_box("right_wall", right_wall, (1.7, 0.1, 1))
+scene.add_box("back_wall", back_wall, (0.3, 2, 1))
 
 bottom_wall = geometry_msgs.msg.PoseStamped()
 bottom_wall.header.frame_id = robot.get_planning_frame()
@@ -79,8 +67,9 @@ top_wall.header.frame_id = robot.get_planning_frame()
 top_wall.pose.position.x = 0
 top_wall.pose.position.y = 0
 top_wall.pose.position.z = 0.9
-#scene.add_box("top_wall", top_wall, (2, 2, 0.1))
+scene.add_box("top_wall", top_wall, (2, 2, 0.1))
 
+# Specify numerical bounds for robot movement, requested movements outside these regions will be rejected
 global minimum_x_boundary, maximum_x_boundary, minimum_y_boundary, maximum_y_boundary, minimum_z_boundary, maximum_z_boundary
 minimum_x_boundary = -0.8
 maximum_x_boundary = -0.11
@@ -89,23 +78,20 @@ maximum_y_boundary = 0.490
 minimum_z_boundary = 0.14
 maximum_z_boundary = 0.9
 
-# Will show zones in rviz for when planning is not running
+# Will show zones in RVIZ for when planning is not running, useful for visualisaiton and debugging
 global vis_separation
 vis_separation = 0.3
-
-
 rospy.sleep(1)
 
 ####################################SAFETY FUNCTIONS###############################################################
-
-#Checks to see if the robot is moving within the required boundary zones
 def WithinBoundary():
-    #Manually set boundary constraints
-
+    # Check on whether or not the robot's TCP is outside the user defined boundary, returns TRUE if robot is outside bounds
+    # Get current TCP position
     current_pose_x = move_group.get_current_pose().pose.position.x
     current_pose_y = move_group.get_current_pose().pose.position.y
     current_pose_z = move_group.get_current_pose().pose.position.z
 
+    # Determine boundary which has been exceeded (IF ANY)
     if (current_pose_x < minimum_x_boundary) or (current_pose_x > maximum_x_boundary):
         rospy.loginfo("Out of X bounds X:{} Y:{} Z:{}".format(current_pose_x, current_pose_y,current_pose_z))
         return False
@@ -118,15 +104,20 @@ def WithinBoundary():
     else:
         return True
 
-#Checks to see if the robot has reached the goal position
 def WithinTarget(target_pose):
+    # Checks to see if the robot has reached the goal position, returns true if robot's TCP is within 0.05m of target
+    # Define target acceptance threshold
     threshold = 0.05
-
+    
+    # Get current TCP position
     current_pose_x = move_group.get_current_pose().pose.position.x
     current_pose_y = move_group.get_current_pose().pose.position.y
     current_pose_z = move_group.get_current_pose().pose.position.z
-
+    
+    # Calculate separation of TCP from target position
     distance = math.sqrt((current_pose_x - target_pose.position.x )**2 + (current_pose_y - target_pose.position.y)**2 + (current_pose_z - target_pose.position.z)**2)
+    
+    # Return true is separation of TCP from target is wihtin threshold
     if distance < threshold:
         rospy.loginfo("Current Position X:{} Y:{} Z:{}".format(current_pose_x, current_pose_y,current_pose_z))
         return True
@@ -134,18 +125,24 @@ def WithinTarget(target_pose):
         return False
 ############################################### DATA STORAGE FUNCTIONS ######################################################
 def AppendData():
+    # Data logging funciton to output TCP position over time, used to produce figures illustrating robot trajectory across different trials
     current_pose_x = move_group.get_current_pose().pose.position.x
     current_pose_y = move_group.get_current_pose().pose.position.y
     current_pose_z = move_group.get_current_pose().pose.position.z
     position_data.append([current_pose_x, current_pose_y, current_pose_z])
+    
 ############################################### MOVEMENT FUNCTIONS ######################################################
 def boundary_exception():
+    # In cases where the function WithinBoundary() returns true, this function will be called to retreat the robot back within bounds
     print("boundary exception triggered")
+    # Initializing variables
     cp = current_position()
     bound_move = cp
     in_target = False
     last_pos = [0,0,0]
 
+    # Determine which boundary has been exceeded, and consequently where to set the target pose to move back wihtin bounds
+    # In cases where more than one boundary is exceeded, exception will be triggered again
     if cp[0] <= minimum_x_boundary:
         bound_move = PoseMaker(minimum_x_boundary + 0.05, cp[1], cp[2])
     elif cp[0] >= maximum_x_boundary:
@@ -159,9 +156,11 @@ def boundary_exception():
     elif cp[2] >= maximum_z_boundary:
         bound_move = PoseMaker(cp[0], cp[1], maximum_z_boundary - 0.05)
 
+    # Plan movement
     move_group.set_pose_target(bound_move)
     plan = move_group.plan()
-    
+
+    # Loop to allow for replanning
     while plan is False:
         print("planning boundary move")        
         joints_list = update_joints(joint_coords, vis_separation)    
@@ -169,6 +168,7 @@ def boundary_exception():
     print("moving to:", bound_move)
     move_group.go(wait=False)
 
+    # Continue moving and updating joint positions until target position for boundary exception is reached
     while in_target is False: 
         AppendData()
         in_target = WithinTarget(bound_move)
@@ -187,8 +187,9 @@ def boundary_exception():
             rospy.sleep(0.1)
 
     print("Exiting boundary exception")   
-    
+
 def saturate_bounds(x, y, z):
+    # Function to saturate a position value, used for commanding the robot, within workspace bounds
     if x <= minimum_x_boundary:
         x = minimum_x_boundary + 0.1
     elif x >= maximum_x_boundary:
@@ -207,6 +208,8 @@ def saturate_bounds(x, y, z):
     return [x, y, z]
 
 def escape():
+    # Function to control the direction the robot will attempt to move after it moves too close to a joint
+    # Initialization
     current_pose = current_position()
     joints_list = update_joints(joint_coords, 0.1)
     print("in escape")
@@ -214,13 +217,15 @@ def escape():
     plan = False
     in_target = False
     last_pos = [0,0,0]
-            
+
+    # Iterate through all nominated joints and determine which is closest
     for joint in joints_list:
         sep = separation(current_pose, joint)
         if sep <= min_sep:
             min_joint = joint
             min_sep = sep
 
+    # If closest joint is within threshold, retreat object away from joint
     if  min_sep <= 0.4: # if joints is within 0.2 of tcp
         print ("Separation is:", min_sep)
         print("Current pose is:", current_pose, "joint is", min_joint)
@@ -230,7 +235,7 @@ def escape():
         sat_p = saturate_bounds(min_joint[0] + v_scaled[0] + 0.2, min_joint[1] + v_scaled[1], min_joint[2] + v_scaled[2])
         retreat = PoseMaker(sat_p[0], sat_p[1], sat_p[2])
 
-        # Correcting orientation so tcp remains standard
+        # Correcting orientation so tcp remains standard if movement is interrupted
         retreat.orientation.x = -0.7055840819676955
         retreat.orientation.y = -0.708634452751245
         retreat.orientation.z = 0.00014032697939014228
@@ -241,7 +246,8 @@ def escape():
             joints_list = update_joints(joint_coords, 0.1)    
             plan = move_group.plan()
         move_group.go(wait=False)
-        
+
+        # Continue movement until new target pose is reached
         while in_target is False:
             AppendData()
             in_target = WithinTarget(retreat)
@@ -255,39 +261,40 @@ def escape():
 
     print("Exiting escape")
 
+
 def current_position():
+    # Function to convert data held in robot 'pose' to an array of floats
     current_pose_x = move_group.get_current_pose().pose.position.x
     current_pose_y = move_group.get_current_pose().pose.position.y
     current_pose_z = move_group.get_current_pose().pose.position.z
     current_pose = [current_pose_x, current_pose_y, current_pose_z]
-
     return current_pose
 
 def MoveToPosition(target_pose):
-       
+    # Main function that manages dynamic collision avoidance for the robot, most other functions in this file are used here       
     if CheckEmergencyStop():
         escape()
 
-    # Turn check to True
+    # Initialize flags
     in_bound = True
     in_target = False
     in_emergency = False   
 
+    # Continue movement until target is reached
     while in_target is False:
-  
         joints_list = update_joints(joint_coords, 0.3)
         plan = False
         last_pos = [0,0,0]
         target_xyz = [target_pose.position.x, target_pose.position.y, target_pose.position.z]
         next_position = next_move(joints_list, target_xyz, ws_array)
         next_pose = PoseMaker(next_position[0], next_position[1], next_position[2])
-                
         move_group.set_pose_target(next_pose)
         in_bound = WithinBoundary()
         in_emergency = CheckEmergencyStop()
         in_emergency_non_tcp = CheckNonTcp()
         joints_list = update_joints(joint_coords, 0.35)
-        
+
+        # Initital safety check of all flags prior to starting movement
         if (in_bound is True and in_target is False and in_emergency is False):
             while plan is False:
                 print("planning movement to:", next_pose)
@@ -295,12 +302,13 @@ def MoveToPosition(target_pose):
                 plan = move_group.plan()
             move_group.go(wait=False)
 
+        # Main movement loop, will temporarily exit if boundary or emergency flag is triggered, permanently if target flag is triggered
         while(in_bound is True and in_target is False and in_emergency is False):
             # Check position
             in_bound = WithinBoundary()
             in_target = WithinTarget(next_pose)
-            in_emergency = CheckEmergencyStop()
-            in_emergency_non_tcp = CheckNonTcp()
+            in_emergency = CheckEmergencyStop() # For joint proximity to TCP
+            in_emergency_non_tcp = CheckNonTcp() # For joint proximity to other robot joints
             AppendData()
 
             current_pos = current_position()
@@ -310,16 +318,17 @@ def MoveToPosition(target_pose):
 
             last_pos = current_position()
             rospy.sleep(0.1)
-            # Stop the robot and clear pose targets
         
-        move_group.stop() # something has happened, stop the robot
+        move_group.stop() # Loop has exited, something has happened, stop the robot
         move_group.clear_pose_targets()
 
         in_target = WithinTarget(target_pose)
 
+        # Determine which flag was triggered, causing the loop exit
         while in_emergency_non_tcp is True:
+            # If a joint is too close to a non-tcp joint, implies it will be unsafe for the robot to move and in all cases, difficult for a safe trajectory to be generated
             in_emergency_non_tcp = CheckNonTcp()
-            # rospy.sleep(0.1)
+            rospy.sleep(0.1)
 
         if in_emergency is True:
             print("escaping")
@@ -332,7 +341,8 @@ def MoveToPosition(target_pose):
             in_bound = True                
               
 def CheckNonTcp():
-    threshold = 0.1 # in m
+    # Function which iterates through all of the non-tcp joints and calcualtes their separation from the nominated joints, returns true if any non-tcp robot joint is too close to a nominated joint
+    threshold = 0.1
     current_joints = GetRobotJointPositions()
 
     joints_list = update_joints(joint_coords, vis_separation)
@@ -347,6 +357,7 @@ def CheckNonTcp():
     return False 
 
 def PoseMaker(x, y, z):
+    # Converts a cartesian point defined by inputs X, Y & Z to a MoveIt pose
     #Generates and returns a target pose with x y z cartesian coordinates as an input
     target_pose = geometry_msgs.msg.Pose()
     target_pose.position.x = x
@@ -360,19 +371,15 @@ def PoseMaker(x, y, z):
     return target_pose
 
 def MoveToCartesian(x, y ,z):
-    #Moves to a target position using x y z cartesian coordinates as an input.
+    # Moves to a target position using x y z cartesian coordinates as an input instead of a robot pose
     target_pose = PoseMaker(x, y, z)
     MoveToPosition(target_pose)
 
-def CheckEmergencyStop(): # Recent changes, add joint retrival funcitonal call and try /except in case body not detected (or there is none to detect)
+def CheckEmergencyStop():
+    # Function which checks the proximity of the robot's TCP to each of the nominated joints, if any is within threshold escape function will be triggered
     threshold = 0.4
-    # CHANGE THIS TO BEGIN TESTING
-    #Checks to see if any robot joints are close to collision with human joints
-    #Currently only for robot end effector - Ideas => Manual calculation of inverse kinematics for calculating other joint positions
-    current_pose = current_position()
-
-    
-    joints_list = update_joints(joint_coords, vis_separation) # WILL ONLY WORK IF BODY IS DETECTED
+    current_pose = current_position()    
+    joints_list = update_joints(joint_coords, vis_separation)
     for joint in joints_list:
         sep = separation(current_pose, joint)
         if sep <= threshold:
@@ -384,13 +391,7 @@ def CheckEmergencyStop(): # Recent changes, add joint retrival funcitonal call a
     return False
         
 def HandFollowing():
-
-    minimum_x_boundary = -0.7
-    maximum_x_boundary = -0.11
-    minimum_y_boundary = -0.5
-    maximum_y_boundary = 0.490
-    minimum_z_boundary = 0.14
-    maximum_z_boundary = 0.7
+    # An early function used to test depth information performance and planning times, robot is instructed to follow the hand of the operator indefinitely
     while 1:
         try:
             lhx = joint_coords[24]
@@ -410,14 +411,15 @@ def HandFollowing():
             pass
 
 def separation(p1,p2):
+    # Helper funciton which calculates the distance between two points in 3-D space
     dX = p2[0]-p1[0]
     dY = p2[1]-p1[1]
     dZ = p2[2]-p1[2]
     sep = ((dX)**2+(dY)**2+(dZ)**2)**0.5
-    return sep #returns distance between points and angle in radians from point 1
+    return sep
 
 def cp_cost(point, joints):
-    # calculates the cost associated with a point due to surrounding joints
+    # calculates the cost associated with a point due to surrounding joints, backbone of potential field system
     cost = 0
     for joint in joints:
         sep = separation(point, joint)
@@ -428,6 +430,7 @@ def cp_cost(point, joints):
     return cost
 
 def next_move (joints, target, ws_array):
+    # Determines the next position to move to, will usually return the input target but will return closest free position within bounds if target is occupied by a human joint
     min_cost = 1000000 # declare as any large number
     ws_array += [target] # ensure that the precise target position cost is always evaluated
     weight = 0.001 # reducing this will allow the robot to get close to joints, and vice versa
@@ -438,11 +441,11 @@ def next_move (joints, target, ws_array):
             min_pose = pos
     return min_pose # the most cost effective position to move to
     
-def init_ws_array(resolution): # will return array with resolution**3 coordinates
+def init_ws_array(resolution): 
+    # will return array with resolution**3 coordinates, a discrete representation of the workspace used to calculate the costs associated with different positions    
     x_size = maximum_x_boundary - minimum_x_boundary
     y_size = maximum_y_boundary - minimum_y_boundary
     z_size = maximum_z_boundary - minimum_z_boundary
-
     i = []
     x_vals = []
     y_vals = []
@@ -461,25 +464,21 @@ def init_ws_array(resolution): # will return array with resolution**3 coordinate
         for k in y_vals:
             for l in z_vals:
                 i += [[j, k, l]]
-
     return(i)
     
-############################################### CALLBACK FUNCTIONS (FOR SUBCRIBER) ######################################################
+############################################### CALLBACK FUNCTIONS (FOR JOINT COORDINATES SUBCRIBER) ######################################
 def joint_coordinates_callback(data):
     # This function will be called whenever a message is received on the /joint_coordinates topic
     # The received joint coordinates are stored in 'data'
     # joint coord global
     global joint_coords
 
-    # Extract and print the joint coordinates
+    # Extract the joint coordinates
     joint_coords = data.data
-    #print("Received joint coordinates:", joint_coords)
-
-    # doing some global stuff
 
 ################################################ SENSOR PROCESSING#########################################################################
 def GetJointPositions():
-
+    # Function which gets current joint positions from array
     try:
         joint_pos = [None] * 32
 
@@ -494,7 +493,7 @@ def GetJointPositions():
         return joint_pos
     
 def GetRobotJointPositions():
-
+    # Function which returns the current joints position of the robot as an array using inverse kinematics
     np.set_printoptions(precision=3, suppress=True)
 
     d1 = 0.163
@@ -565,6 +564,9 @@ def getJointPose(dh_params, theta):
 
 
 def update_joints(joint_coords, radius):
+    # Function which updates the nominated joints based off of the subscriber data - update in real-time
+    # Is called prior to any motion plans and during movement, to ensure dynamic collisions can be prevented
+    # Adds collision objects in MoveIt which can be visualised in RVIZ, used for static obstacle planning
     SHOULDER_LEFT = [joint_coords[15], joint_coords[16], joint_coords[17]]
     ELBOW_LEFT = [joint_coords[18], joint_coords[19], joint_coords[20]]
     HAND_LEFT = [joint_coords[24], joint_coords[25], joint_coords[26]]
@@ -575,6 +577,7 @@ def update_joints(joint_coords, radius):
 
     joints = [SHOULDER_LEFT, ELBOW_LEFT, HAND_LEFT, SHOULDER_RIGHT, ELBOW_RIGHT,HAND_RIGHT,HEAD]
 
+    # Add the joints as spherical collision objects
     SHOULDER_LEFT_p = geometry_msgs.msg.PoseStamped()
     SHOULDER_LEFT_p.header.frame_id = robot.get_planning_frame()
     SHOULDER_LEFT_p.pose.position.x = joints[0][0]
@@ -627,7 +630,7 @@ def update_joints(joint_coords, radius):
     return joints
 
 def align_tcp():
-    # Ensure tcp is standard orientation
+    # Ensure tcp has standard orientation
     cp = current_position()
     cp = PoseMaker(cp[0], cp[1], cp[2])
     cp.orientation.x = -0.7055840819676955
@@ -646,23 +649,20 @@ rospy.Subscriber('/joint_coordinates', Float64MultiArray, joint_coordinates_call
 #Create a position saving variable
 position_data = []
 global ws_array
+global joint_coords
 ws_array = init_ws_array(20)
+joint_coords = numpy.zeros(96) # initialize joint coords
 print("check")
-
-#Is a global until FSM is set up
 checkEmergencyStop = False
 goal = geometry_msgs.msg.Pose()
 target1 = [-0.56, 0.4, 0.3]
 target2 = [-0.56, -0.4, 0.3]
-
 completed = False
-global joint_coords
-joint_coords = numpy.zeros(96) # initialize joint coords
-b = GetRobotJointPositions()
+
+# Ensure TCP is in standard position
 align_tcp()
 
-print("START")
-# stall while no body detected
+# Stalls until body of human operator is detected detected
 while completed == False:
     if joint_coords[0] != 0:
         # First Movement
@@ -693,6 +693,7 @@ while completed == False:
         
 
 with open('tcp_position.csv', 'a', newline='') as csvfile:
+        # Exports data collected using AppendData function to a csv, 3-D plots were later produced in MATLAB
         csv_writer = csv.writer(csvfile)
         
         # Write a header row with column names
@@ -700,115 +701,3 @@ with open('tcp_position.csv', 'a', newline='') as csvfile:
         
         # Write the position data
         csv_writer.writerows(position_data)
-
-    
-# Setting up joints
-'''
-while 1:
-    try:
-        print("entered loop")
-        rospy.sleep(1.0)
-        joints_list = update_joints(joint_coords) # JOINTS PUBLISHER MUST BE RUNNING
-        print("joints identified")
-        print("Left hand is at:", joints_list[2]) # DEBUGGING / CHECKING
-        next_pos = next_move(joints_list, target1, ws_array)
-        print("Moving to:", next_pos)
-        
-        pose_1 = geometry_msgs.msg.Pose()
-        pose_1.position.x = next_pos[0]
-        pose_1.position.y = next_pos[1]
-        pose_1.position.z = next_pos[2]
-        pose_1.orientation.x = move_group.get_current_pose().pose.orientation.x
-        pose_1.orientation.y = move_group.get_current_pose().pose.orientation.y
-        pose_1.orientation.z = move_group.get_current_pose().pose.orientation.z
-        pose_1.orientation.w = move_group.get_current_pose().pose.orientation.w
-        #MoveToPosition(pose_1)
-        print("Finished moving to pose")
-        rospy.sleep(0.5)
-    except:
-        pass
-
-'''
-
-
-    
-
-
-#HandFollowing()'''
-
-
-#Notes
-#z 0.45 limit
-# goal.position.x = -0.56
-# goal.position.y = 0.2
-# goal.position.z = 0.21
-# goal.orientation.x = move_group.get_current_pose().pose.orientation.x
-# goal.orientation.y = move_group.get_current_pose().pose.orientation.y
-# goal.orientation.z = move_group.get_current_pose().pose.orientation.z
-# goal.orientation.w = move_group.get_current_pose().pose.orientation.w
-
-# # Define the first target pose
-# pose_1 = geometry_msgs.msg.Pose()
-# pose_1.position.x = -0.3
-# pose_1.position.y = 0.20
-# pose_1.position.z = 0.21
-# pose_1.orientation.x = move_group.get_current_pose().pose.orientation.x
-# pose_1.orientation.y = move_group.get_current_pose().pose.orientation.y
-# pose_1.orientation.z = move_group.get_current_pose().pose.orientation.z
-# pose_1.orientation.w = move_group.get_current_pose().pose.orientation.w
-
-# # Define the second target pose
-# pose_2 = geometry_msgs.msg.Pose()
-# pose_2.position.x = -0.56
-# pose_2.position.y = -0.20
-# pose_2.position.z = 0.21
-# pose_2.orientation.x = move_group.get_current_pose().pose.orientation.x
-# pose_2.orientation.y = move_group.get_current_pose().pose.orientation.y
-# pose_2.orientation.z = move_group.get_current_pose().pose.orientation.z
-# pose_2.orientation.w = move_group.get_current_pose().pose.orientation.w
-
-# # Define the third target pose
-# pose_3 = geometry_msgs.msg.Pose()
-# pose_3.position.x = -0.56
-# pose_3.position.y = -0.40
-# pose_3.position.z = 0.21
-# pose_3.orientation.x = move_group.get_current_pose().pose.orientation.x
-# pose_3.orientation.y = move_group.get_current_pose().pose.orientation.y
-# pose_3.orientation.z = move_group.get_current_pose().pose.orientation.z
-# pose_3.orientation.w = move_group.get_current_pose().pose.orientation.w
-
-# # Define the fourth target pose
-# pose_4 = geometry_msgs.msg.Pose()
-# pose_4.position.x = -0.56
-# pose_4.position.y = -0.40
-# pose_4.position.z = 0.40
-# pose_4.orientation.x = move_group.get_current_pose().pose.orientation.x
-# pose_4.orientation.y = move_group.get_current_pose().pose.orientation.y
-# pose_4.orientation.z = move_group.get_current_pose().pose.orientation.z
-# pose_4.orientation.w = move_group.get_current_pose().pose.orientation.w
-
-# MoveToPosition(pose_1)
-# print("Finished moving to the first pose")
-# rospy.sleep(0.5)
-
-# MoveToPosition(pose_2)
-# print("Finished moving to the second pose")
-# rospy.sleep(0.5)
-
-# MoveToPosition(pose_3)
-# print("Finished moving to the third pose")
-# rospy.sleep(0.5)
-
-# MoveToPosition(pose_4)
-# print("Finished moving to the fourth pose")
-
-# # After your loop, save the position data to a CSV file
-# with open('position_physical.csv', 'a', newline='') as csvfile:
-#     csv_writer = csv.writer(csvfile)
-    
-#     # Write a header row with column names
-#     csv_writer.writerow(['X', 'Y', 'Z'])
-    
-#     # Write the position data
-#     csv_writer.writerows(position_data)
-
