@@ -77,7 +77,7 @@
 	- This replaces the joint limits with the corrected ones
 	
  2. Ensure calibration of the depth camera
- # Follow https://github.com/UniversalRobots/Universal_Robots_ROS_Driver to establish a connection with the PC and UR5e	
+ #### Follow https://github.com/UniversalRobots/Universal_Robots_ROS_Driver to establish a connection with the PC and UR5e	
 	 #Calibrate robot 
 	 	roslaunch ur_calibration calibration_correction.launch \
 				robot_ip:=192.168.12.100 target_filename:="${HOME}/my_robot_calibration.yaml"
