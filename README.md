@@ -1,4 +1,5 @@
 # Safe Human-Robot Collaboration via Active Collision Avoidance
+#### Github Repository: https://github.com/mhor992/Active-Collision-Avoidance.git
 
  This document outlines the entire process for implementing the Safe Human-Robot Collaboration via Avoidance Collision Avoidance robotic system.
  
@@ -50,16 +51,17 @@
  https://github.com/dbddqy/visual_kinematics
  
  8. Install Active-Collision-Avoidance - This reposition
- Follow instructions as per below
+ #### Follow instructions as per below
  
 	 1. Install from source
-	 cd $HOME
-	 mkdir -p Safe_HRC/src
-	 cd Safe_HRC/src
-	 git clone https://github.com/mhor992/P4P.git
-	 cd ..
-	 catkin build
-	 source devel/setup.bash
+	 
+  		cd $HOME
+  		mkdir -p Safe_HRC/src
+  		cd Safe_HRC/src
+  		git clone https://github.com/mhor992/P4P.git
+  		cd ..
+  		catkin build
+  		source devel/setup.bash
  
 	2. Alternatively, download zip file and extract
 	
@@ -75,12 +77,11 @@
 	- This replaces the joint limits with the corrected ones
 	
  2. Ensure calibration of the depth camera
- #Follow https://github.com/UniversalRobots/Universal_Robots_ROS_Driver to establish a connection with the PC and UR5e
-	
- #Calibrate robot 
- 	roslaunch ur_calibration calibration_correction.launch \
-			robot_ip:=192.168.12.100 target_filename:="${HOME}/my_robot_calibration.yaml"
-			
+ # Follow https://github.com/UniversalRobots/Universal_Robots_ROS_Driver to establish a connection with the PC and UR5e	
+	 #Calibrate robot 
+	 	roslaunch ur_calibration calibration_correction.launch \
+				robot_ip:=192.168.12.100 target_filename:="${HOME}/my_robot_calibration.yaml"
+    
 	#Connect to robot
 		roslaunch ur_robot_driver ur5e_bringup.launch robot_ip:=192.168.12.100 \
 			kinematics_config:=$HOME/my_robot_calibration.yaml
