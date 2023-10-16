@@ -1,16 +1,22 @@
+# Function which makes use of the Py-Kinect Azure package, an interface for the Microsoft Azure Kinect Body Tracker SDK
+# Publishes depth information gathered from the Azure Kinect Depth Camera to the ROS server in real-time
+# Author: Matthew Horning
+
+# Import required libaries
 import cv2
 import pykinect_azure as pykinect
 import rospy
 from std_msgs.msg import Float64MultiArray
 
 def transform_coords(x,y,z):
+    # Transforms coordiantes according to camera calibration
     tx = 0.0011 * y - 0.5986
     ty = 0.0009 * x - 0.2409
     tz = -0.0011 * z + 1.3665
     return [tx, ty, tz]
 
 if __name__ == "__main__":
-    # Initialize ROS nodeW
+    # Initialize ROS node
     rospy.init_node('kinect_skeleton_publisher')
 
     # Initialize the library, if the library is not found, add the library path as an argument
@@ -62,6 +68,7 @@ if __name__ == "__main__":
             # Create a list to store joint coordinates
             joint_coords = []
 
+            # Store the x, y & z coordiantes for each joint in the joint_coords array, may seem convoluted to make an appented list of values but it works well for the ROS publisher
             for joint in fskelly.joints:
                 x = joint.position.xyz.x
                 y = joint.position.xyz.y
@@ -69,10 +76,10 @@ if __name__ == "__main__":
                 coords = transform_coords(x, y, z)
                 joint_coords.extend(coords)
 
+            # Debugging / testing
             lhx = joint_coords[24]
             lhy = joint_coords[25]
             lhz = joint_coords[26]
-
             print("left hand is at: ", lhx,lhy,lhz)
 
             # Publish the joint coordinates as a Float64MultiArray
