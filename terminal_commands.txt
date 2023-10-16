@@ -1,0 +1,20 @@
+#TO CONTROL PHYSICAL ROBOT
+
+roslaunch ur_robot_driver ur5e_bringup.launch robot_ip:=192.168.12.100 \
+  kinematics_config:=$HOME/my_robot_calibration.yaml
+  
+roslaunch ur5e_moveit_config moveit_planning_execution.launch
+roslaunch ur5e_moveit_config moveit_rviz.launch
+
+roslaunch ur_calibration calibration_correction.launch \
+  robot_ip:=192.168.12.100 target_filename:="${HOME}/my_robot_calibration.yaml"
+  
+  #TO CONTROL THE SIUMULATED ROBOT
+
+roslaunch ur_gazebo ur5e_bringup.launch
+roslaunch ur5e_moveit_config moveit_planning_execution.launch sim:=true
+roslaunch ur5e_moveit_config moveit_rviz.launch
+
+rosservice call /clear_octomap
+
+https://www.universal-robots.com/articles/ur/application-installation/dh-parameters-for-calculations-of-kinematics-and-dynamics/
