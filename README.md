@@ -6,17 +6,19 @@
  
  The system utilises Azure Kinect Depth sensors used for body tracking, MoveIt! to command the UR5e and a linux operating system linked with ROS.
  
-# Implementation
+## Implementation
  
  This system will only work with an Ubuntu Linux based system that does not use a virtual machine.
  
-# Physical Setup
+### Physical Setup
 
  Create a physical setup as shown in Experimental Setup => Experimental_Setup_1
+ ![Experimental_Setup](https://github.com/mhor992/Active-Collision-Avoidance/assets/87846690/99af9676-9530-4cc6-88ee-9b53f41bac15)
+
  - This uses a UR5e robot with a workbench as its operating boundary zone
  - The setup utilises Azure Kinect cameras as seen on the ceiling. Setup for an ariel view across the entire workspace
  
-# Software Dependency Installations
+### Software Dependency Installations
  - Install the following installations in seperate catkin workspaces and source from all
  
  1. Install Visual Studio Code
@@ -47,7 +49,7 @@
  Follow the official documentation setup as per below
  https://github.com/dbddqy/visual_kinematics
  
- 8. Install P4P - This reposition
+ 8. Install Active-Collision-Avoidance - This reposition
  Follow instructions as per below
  
 	 1. Install from source
@@ -66,16 +68,17 @@
 	 pip install numpy
  
  
-# Modifications
+## Modifications
  
  1. Modify robotic joint kinematics
 	- Replace the contents of universal_robot/ur_description/config/ur5e/joint_limits.yaml with the contents found in Experimental_Setup/joint_limits.yaml
 	- This replaces the joint limits with the corrected ones
 	
  2. Ensure calibration of the depth camera
-	#Follow https://github.com/UniversalRobots/Universal_Robots_ROS_Driver to establish a connection with the PC and UR5e
-	#Calibrate robot
-		roslaunch ur_calibration calibration_correction.launch \
+ #Follow https://github.com/UniversalRobots/Universal_Robots_ROS_Driver to establish a connection with the PC and UR5e
+	
+ #Calibrate robot 
+ 	roslaunch ur_calibration calibration_correction.launch \
 			robot_ip:=192.168.12.100 target_filename:="${HOME}/my_robot_calibration.yaml"
 			
 	#Connect to robot
@@ -85,13 +88,13 @@
 	#Connect to UR5e using MoveIt!
 		roslaunch ur5e_moveit_config moveit_planning_execution.launch
 		
-	- Using Visual Studio run BodyTrackingPublisher.py and get_current_pos simulatenously
+	- Using Visual Studio run body_tracking_ros_publisher and get_current_position simulatenously
 	- Using the teach pendant move the robot and modify the transform_coords(x,y,z) function to calibrate the camera and robot to match
 	
- 3. Modify the boundary zones
+ 4. Modify the boundary zones
 	- Using get_current_pos and the teach pendant to move the robot, modify the maximum and minimum boundary zones for each x,y,z plane
 	
-# Running the robotic system
+## Running the robotic system
 	# For physical setup
 	Run the following code in a new terminal below
 		roslaunch ur_robot_driver ur5e_bringup.launch robot_ip:=192.168.12.100 \
@@ -100,7 +103,7 @@
 		roslaunch ur5e_moveit_config moveit_rviz.launch
 
 	
-	Open visual studio and run BodyTrackingPublisher.py and then ur5e_pm_w_sub.py
+	Open visual studio and run body_tracking_ros_publisher.py and then UR5e_dynamic_obstacle_avoidance.py
 	
 	# For simulation setup 
 	roslaunch ur_gazebo ur5e_bringup.launch
