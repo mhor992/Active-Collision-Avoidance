@@ -58,7 +58,7 @@
   		cd $HOME
   		mkdir -p Safe_HRC/src
   		cd Safe_HRC/src
-  		git clone https://github.com/mhor992/P4P.git
+  		git clone https://github.com/mhor992/Active-Collision-Avoidance.git
   		cd ..
   		catkin build
   		source devel/setup.bash
@@ -80,10 +80,10 @@
  #### Follow https://github.com/UniversalRobots/Universal_Robots_ROS_Driver to establish a connection with the PC and UR5e	
 	 #Calibrate robot 
 	 	roslaunch ur_calibration calibration_correction.launch \
-				robot_ip:=192.168.12.100 target_filename:="${HOME}/my_robot_calibration.yaml"
+				robot_ip:=[ROBOT_IP] target_filename:="${HOME}/my_robot_calibration.yaml"
     
 	#Connect to robot
-		roslaunch ur_robot_driver ur5e_bringup.launch robot_ip:=192.168.12.100 \
+		roslaunch ur_robot_driver ur5e_bringup.launch robot_ip:=[ROBOT_IP] \
 			kinematics_config:=$HOME/my_robot_calibration.yaml
 
 	#Connect to UR5e using MoveIt!
@@ -98,7 +98,7 @@
 ## Running the robotic system
 	# For physical setup
 	Run the following code in a new terminal below
-		roslaunch ur_robot_driver ur5e_bringup.launch robot_ip:=192.168.12.100 \
+		roslaunch ur_robot_driver ur5e_bringup.launch robot_ip:=[ROBOT_IP] \
 			kinematics_config:=$HOME/my_robot_calibration.yaml
 		roslaunch ur5e_moveit_config moveit_planning_execution.launch
 		roslaunch ur5e_moveit_config moveit_rviz.launch
